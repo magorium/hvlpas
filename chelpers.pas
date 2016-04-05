@@ -58,6 +58,9 @@ begin
 end;
 
 
+(*
+  Immediate If 'simulation'.
+*)
 function  IIF(expression: boolean; TrueValue: LongWord; FalseValue: LongWord): LongWord; overload; inline;
 begin
   if expression 

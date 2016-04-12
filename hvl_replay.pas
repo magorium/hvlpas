@@ -271,4 +271,27 @@ begin
 end;
 
 
+
+procedure hvl_GenSawtooth(buf: pint8; len: uint32);
+var
+  i     : uint32;
+  val, 
+  add   : int32;
+begin
+  add := 256 div (len-1);
+  val := -128;
+
+  i := 0;
+  while (i < len) do 
+  begin
+    buf^ := int8(val);   
+    inc(buf, 1);
+    val  := val + add;
+
+    inc(i);
+  end;    
+end;
+
+
+
 end.

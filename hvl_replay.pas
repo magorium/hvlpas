@@ -376,4 +376,15 @@ end;
 
 
 
+function clip(x: float64): float64; inline;
+begin
+  if ( x > 127.0 )
+  then x := 127.0
+  else if ( x < -128.0 )
+       then x := -128.0;
+  clip := x;
+end;
+
+
+
 end.

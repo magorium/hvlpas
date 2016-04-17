@@ -456,4 +456,42 @@ end;
 
 
 
+procedure hvl_GenWhiteNoise(buf: pint8; len: uint32);
+var
+  ays   : uint32;
+var
+  ax, 
+  bx    : uint16;
+  s     : int8;
+begin
+  ays := $41595321;
+
+  repeat
+    s := ays;
+
+    if ( ays and $100 <> 0 ) then
+    begin
+      s := int8($80);                   // FPC: cast to suppress warning
+
+      if ( LongInt(ays and $ffff) >= 0 )
+      then s := $7f;
+    end;
+
+    buf^ := s;  inc(buf, 1);
+    dec(len, 1);
+
+    ays := (ays shr 5) or (ays shl 27);
+    ays := (ays and $ffffff00) or ((ays and $ff) xor $9a);
+    bx  := ays;
+    ays := (ays shl 2) or (ays shr 30);
+    ax  := ays;
+    bx  := bx + ax;
+    ax  := ax xor bx;
+    ays := (ays and $ffff0000) or ax;
+    ays := (ays shr 3) or (ays shl 29);
+  until ( len <= 0 );
+end;
+
+
+
 end.

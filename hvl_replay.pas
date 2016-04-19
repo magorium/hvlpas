@@ -615,4 +615,57 @@ end;
 
 
 
+function  hvl_InitSubsong(ht: Phvl_tune; nr: uint32): LongBool;
+var
+  PosNr : uint16;       // FPC
+  i     : uint32;
+begin
+  if ( nr > ht^.ht_SubsongNr )
+  then exit(false);
+
+  ht^.ht_SongNum := nr;
+  
+  PosNr := 0;
+  if ( nr <> 0 ) then PosNr := ht^.ht_Subsongs[nr-1];
+  
+  ht^.ht_PosNr          := PosNr;
+  ht^.ht_PosJump        := 0;
+  ht^.ht_PatternBreak   := 0;
+  ht^.ht_NoteNr         := 0;
+  ht^.ht_PosJumpNote    := 0;
+  ht^.ht_Tempo          := 6;
+  ht^.ht_StepWaitFrames	:= 0;
+  ht^.ht_GetNewPosition := 1;
+  ht^.ht_SongEndReached := 0;
+  ht^.ht_PlayingTime    := 0;
+
+  i := 0;
+  while ( i < MAX_CHANNELS ) do
+  begin
+    ht^.ht_Voices[i+0].vc_Pan          := ht^.ht_defpanleft;
+    ht^.ht_Voices[i+0].vc_SetPan       := ht^.ht_defpanleft;    // 1.4
+    ht^.ht_Voices[i+0].vc_PanMultLeft  := panning_left[ht^.ht_defpanleft];
+    ht^.ht_Voices[i+0].vc_PanMultRight := panning_right[ht^.ht_defpanleft];
+    ht^.ht_Voices[i+1].vc_Pan          := ht^.ht_defpanright;
+    ht^.ht_Voices[i+1].vc_SetPan       := ht^.ht_defpanright;   // 1.4
+    ht^.ht_Voices[i+1].vc_PanMultLeft  := panning_left[ht^.ht_defpanright];
+    ht^.ht_Voices[i+1].vc_PanMultRight := panning_right[ht^.ht_defpanright];
+    ht^.ht_Voices[i+2].vc_Pan          := ht^.ht_defpanright;
+    ht^.ht_Voices[i+2].vc_SetPan       := ht^.ht_defpanright;   // 1.4
+    ht^.ht_Voices[i+2].vc_PanMultLeft  := panning_left[ht^.ht_defpanright];
+    ht^.ht_Voices[i+2].vc_PanMultRight := panning_right[ht^.ht_defpanright];
+    ht^.ht_Voices[i+3].vc_Pan          := ht^.ht_defpanleft;
+    ht^.ht_Voices[i+3].vc_SetPan       := ht^.ht_defpanleft;    // 1.4
+    ht^.ht_Voices[i+3].vc_PanMultLeft  := panning_left[ht^.ht_defpanleft];
+    ht^.ht_Voices[i+3].vc_PanMultRight := panning_right[ht^.ht_defpanleft];
+    i := i + 4;
+  end;
+
+  hvl_reset_some_stuff( ht );
+  
+  hvl_InitSubsong := true;
+end;
+
+
+
 end.

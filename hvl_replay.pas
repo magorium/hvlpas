@@ -249,6 +249,37 @@ Var
 
 
 
+//*
+//** Waves
+//*
+const
+  WHITENOISELEN     = ($280*3);                                             
+                    
+  WO_LOWPASSES      = 0;
+  WO_TRIANGLE_04    = (WO_LOWPASSES+(($fc+$fc+$80*$1f+$80+3*$280)*31));     
+  WO_TRIANGLE_08    = (WO_TRIANGLE_04+$04);                                 
+  WO_TRIANGLE_10    = (WO_TRIANGLE_08+$08);                                 
+  WO_TRIANGLE_20    = (WO_TRIANGLE_10+$10);                                 
+  WO_TRIANGLE_40    = (WO_TRIANGLE_20+$20);                                 
+  WO_TRIANGLE_80    = (WO_TRIANGLE_40+$40);                                 
+  WO_SAWTOOTH_04    = (WO_TRIANGLE_80+$80);                                 
+  WO_SAWTOOTH_08    = (WO_SAWTOOTH_04+$04);                                 
+  WO_SAWTOOTH_10    = (WO_SAWTOOTH_08+$08);                                 
+  WO_SAWTOOTH_20    = (WO_SAWTOOTH_10+$10);                                 
+  WO_SAWTOOTH_40    = (WO_SAWTOOTH_20+$20);                                 
+  WO_SAWTOOTH_80    = (WO_SAWTOOTH_40+$40);                                 
+  WO_SQUARES        = (WO_SAWTOOTH_80+$80);                                 
+  WO_WHITENOISE     = (WO_SQUARES+($80*$20));                               
+  WO_HIGHPASSES     = (WO_WHITENOISE+WHITENOISELEN);                        
+  WAVES_SIZE        = (WO_HIGHPASSES+(($fc+$fc+$80*$1f+$80+3*$280)*31));    
+  
+
+Var
+  waves     : packed array [0..Pred(WAVES_SIZE)] of int8;
+  waves2    :        array [0..Pred(WAVES_SIZE)] of int16;
+
+
+
 procedure hvl_GenPanningTables;
 var
   i         : uint32;

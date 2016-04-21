@@ -699,4 +699,26 @@ end;
 
 
 
+procedure hvl_InitReplayer;
+begin
+  hvl_GenPanningTables();
+  hvl_GenSawtooth( @waves[WO_SAWTOOTH_04], $04 );
+  hvl_GenSawtooth( @waves[WO_SAWTOOTH_08], $08 );
+  hvl_GenSawtooth( @waves[WO_SAWTOOTH_10], $10 );
+  hvl_GenSawtooth( @waves[WO_SAWTOOTH_20], $20 );
+  hvl_GenSawtooth( @waves[WO_SAWTOOTH_40], $40 );
+  hvl_GenSawtooth( @waves[WO_SAWTOOTH_80], $80 );
+  hvl_GenTriangle( @waves[WO_TRIANGLE_04], $04 );
+  hvl_GenTriangle( @waves[WO_TRIANGLE_08], $08 );
+  hvl_GenTriangle( @waves[WO_TRIANGLE_10], $10 );
+  hvl_GenTriangle( @waves[WO_TRIANGLE_20], $20 );
+  hvl_GenTriangle( @waves[WO_TRIANGLE_40], $40 );
+  hvl_GenTriangle( @waves[WO_TRIANGLE_80], $80 );
+  hvl_GenSquare     ( @waves[WO_SQUARES] );
+  hvl_GenWhiteNoise ( @waves[WO_WHITENOISE], WHITENOISELEN );
+  hvl_GenFilterWaves( @waves[WO_TRIANGLE_04], @waves[WO_LOWPASSES], @waves[WO_HIGHPASSES] );
+end;
+
+
+
 end.

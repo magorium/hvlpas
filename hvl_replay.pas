@@ -978,4 +978,352 @@ end;
 
 
 
+function hvl_LoadTune(name: pchar; freq: uint32; defstereo: uint32): Phvl_Tune;
+var
+  ht        : Phvl_tune;
+  buf, bptr : Puint8;
+  nptr      : pchar;
+  buflen, i, j, posn, insn, ssn, chnn, hs, trkl, trkn: uint32;
+  ple       : Phvl_plsentry;  
+var  // FPC: specifics
+  fh        : Longint; // THandle;
+  nbytes    : longint;
+begin
+  (*
+    Pascalized file and memory handling
+  *)
+  
+  // Check if file exist at all.
+  If not FileExists( name ) then
+  begin  
+    writeln('Unable to find "', name, '"');
+    exit(nil);
+  end;  
+
+  // Open the file
+  fh := FileOpen(name, fmOpenRead);
+  if (fh = -1) then
+  begin
+    writeln( 'Can''t open file' );
+    exit (nil);
+  end;
+  
+  // determine size of file/buffer
+  FileSeek(fh, 0, fsFromBeginning);         // make sure filepos is zero'ed
+  buflen := FileSeek(fh, 0, fsFromEnd);     // seek to end and return its byrnumber
+  writeln('determined buffer size of ', buflen);
+
+  // Allocate memory for buffer.
+  buf    := GetMem(buflen);                 // Allocate the memory. Classic would require alignment (AllocVec)
+  if (buf = nil) then
+  begin  
+    FileClose(fh);
+    writeln('Out of memory');
+    exit(nil);
+  end;
+
+  // Read file into memory buffer
+  FileSeek(fh, 0, fsFromBeginning);         // make sure filepos is zero'ed again
+  nbytes := FileRead( fh, buf^, buflen);
+  writeln(' read ', nbytes,' bytes');
+
+  if ( nbytes <> buflen ) then
+  begin
+    FreeMem( buf );
+    FileClose( fh );
+    writeln( 'Unable to read from file!' );
+    exit ( nil );
+  end;
+
+  // Finally close the file.
+  FileClose( fh );
+
+  //
+  // usual analysis follows
+  //
+  if( ( buf[0] = uint8('T') ) and
+      ( buf[1] = uint8('H') ) and
+      ( buf[2] = uint8('X') ) and
+      ( buf[3] < 3 ) )
+  then exit(hvl_load_ahx( buf, buflen, defstereo, freq ));
+
+  if( ( buf[0] <> uint8('H') ) or
+      ( buf[1] <> uint8('V') ) or
+      ( buf[2] <> uint8('L') ) or
+      ( buf[3] > 1 ) )  then // 1.5
+  begin
+    FreeMem( buf );
+    writeln( 'Invalid file.' );
+    exit ( nil );
+  end;
+  
+  DebugLn('constructing hvl');
+  
+  //  buf[4] + buf[5] = length of song without instrument(s) or instrument names
+  
+  posn := ((buf[6] and $0f) shl 8) or buf[7];       // number of positions ? (in position editor, starts counting from zero) noted in editor as songlength
+  insn := buf[12];                                  // number of instruments (editor starts counting at 1)
+  ssn  := buf[13];                                  // number of subsongs
+  chnn := (buf[8] shr 2) + 4;                       // numbers of channels.. e.g. $10 = 16 shr 2 = 4 + 4 = 8 tracks
+  trkl := buf[10];                                  // tracklength (editor start counting from 0, e.g. 64 means 0-63)
+  trkn := buf[11];                                  // number of tracks ???? i've seen #90 = $5A, so no idea atm
+
+  hs :=      sizeof( Thvl_tune       );              // reserve room for tune
+  hs := hs + sizeof( Thvl_position   ) * posn;       // reserve room for positions
+  hs := hs + sizeof( Thvl_instrument ) * (insn+1);   // reserve room for instruments
+  hs := hs + sizeof( uint16          ) * ssn;        // reserve room for subsong numbers ?
+
+  // Calculate the size of all instrument PList buffers
+  bptr := @buf[16];
+  bptr := bptr + (ssn*2);       // Skip past subsong list
+  bptr := bptr + (posn*chnn*2); // Skip past positions
+  
+
+  // Skip past the tracks
+  // 1.4: Fixed two really stupid bugs that cancelled each other
+  //      out if the module had a blank first track (which is how
+  //      come they were missed.
+  if (buf[6] and $80) = $80 
+  then i := 1 
+  else i := 0;
+  
+  while (i <= trkn) do
+  begin
+    j := 0;
+    while (j < trkl) do
+    begin
+      if ( bptr[0] = $3f ) then
+      begin
+        inc(bptr, 1);
+        continue;       // FIXME: Does counter j need to be increased or not ?
+      end;
+      bptr := bptr + 5;
+      inc(j);
+    end;
+    inc(i);
+  end;
+
+  // *NOW* we can finally calculate PList space
+  i := 1;
+  while (i <= insn) do
+  begin
+    hs   :=   hs + (      bptr[21] * sizeof( Thvl_plsentry ) );
+    bptr := bptr + ( 22 + bptr[21] * 5 );
+    inc(i);
+  end;
+
+  ht := GetMem( hs );       // FPC: native memory handling
+  if not( ht <> nil ) then
+  begin
+    FreeMem( buf );         // FPC: native memory handling
+    writeln( 'Out of memory!' );
+    exit ( nil );
+  end;
+  DebugLn('allocated ht memory');
+
+
+  ht^.ht_Version         := buf[3]; // 1.5
+  ht^.ht_Frequency       := freq;
+  ht^.ht_FreqF           := float64(freq);
+
+  ht^.ht_Positions       := Phvl_position( @ht[1] );
+  ht^.ht_Instruments     := Phvl_instrument( @ht^.ht_Positions[posn] );
+  ht^.ht_Subsongs        := puint16( @ht^.ht_Instruments[(insn+1)] );
+  ple                    := Phvl_plsentry( @ht^.ht_Subsongs[ssn] );
+
+  ht^.ht_WaveformTab[0]  := @waves[WO_TRIANGLE_04];
+  ht^.ht_WaveformTab[1]  := @waves[WO_SAWTOOTH_04];
+  ht^.ht_WaveformTab[3]  := @waves[WO_WHITENOISE];
+
+  ht^.ht_PositionNr      := posn;
+  ht^.ht_Channels        := (buf[8] shr 2)+4;
+  ht^.ht_Restart         := ((buf[8] and 3) shl 8) or buf[9];
+  ht^.ht_SpeedMultiplier := ((buf[6] shr 5) and 3)+1;
+  ht^.ht_TrackLength     := buf[10];
+  ht^.ht_TrackNr         := buf[11];
+  ht^.ht_InstrumentNr    := insn;
+  ht^.ht_SubsongNr       := ssn;
+  ht^.ht_mixgain         := (buf[14] shl 8) div 100;
+  ht^.ht_defstereo       := buf[15];
+  ht^.ht_defpanleft      := stereopan_left[ht^.ht_defstereo];
+  ht^.ht_defpanright     := stereopan_right[ht^.ht_defstereo];
+
+  if ( ht^.ht_Restart >= ht^.ht_PositionNr )
+  then ht^.ht_Restart := ht^.ht_PositionNr-1;
+
+  // Do some validation  
+  if ( ( ht^.ht_PositionNr   > 1000 ) or
+       ( ht^.ht_TrackLength  >   64 ) or
+       ( ht^.ht_InstrumentNr >   64 ) ) then
+  begin
+    writeln(format( '%d,%d,%d', 
+    [ 
+      ht^.ht_PositionNr,
+      ht^.ht_TrackLength,
+      ht^.ht_InstrumentNr 
+    ] ));
+    FreeMem( ht );      // FPC: native memory handling
+    FreeMem( buf );     // FPC: native memory handling
+    writeln( 'Invalid file.' );
+    exit ( nil );
+  end;
+
+  DebugLn('validation passed');
+  
+  strlcopy( ht^.ht_Name, pchar(@buf[(buf[4] shl 8) or buf[5]]), 128 );
+  nptr := pchar(@buf[((buf[4] shl 8) or buf[5]) + strlen( ht^.ht_Name )+1]);
+
+  bptr := @buf[16];
+
+  // Subsongs
+  DebugLn('initialize subsongs #', [ht^.ht_SubsongNr]);
+  i := 0;
+  while (i < ht^.ht_SubsongNr) do
+  begin
+    ht^.ht_Subsongs[i] := (bptr[0] shl 8) or bptr[1];
+    bptr := bptr + 2;
+    inc(i);
+  end;
+
+  // Position list
+  DebugLn('initialize position list #', [ht^.ht_PositionNr]);
+  i := 0;
+  while (i < ht^.ht_PositionNr) do 
+  begin
+    j := 0;
+    while (j < ht^.ht_Channels) do
+    begin
+      ht^.ht_Positions[i].pos_Track[j]     := bptr^;         
+      inc(bptr, 1);
+      ht^.ht_Positions[i].pos_Transpose[j] := pint8(bptr)^;
+      inc(bptr, 1);
+      inc(j);
+    end;
+    inc(i);
+  end;
+
+  // Tracks
+  DebugLn('initialize tracks #', [ht^.ht_TrackNr]);  
+  i := 0;
+  while (i <= ht^.ht_TrackNr) do
+  begin
+    if ( ( ( buf[6] and $80 ) = $80 ) and ( i = 0 ) ) then
+    begin
+      j := 0;
+      while (j < ht^.ht_TrackLength) do 
+      begin
+        ht^.ht_Tracks[i][j].stp_Note       := 0;
+        ht^.ht_Tracks[i][j].stp_Instrument := 0;
+        ht^.ht_Tracks[i][j].stp_FX         := 0;
+        ht^.ht_Tracks[i][j].stp_FXParam    := 0;
+        ht^.ht_Tracks[i][j].stp_FXb        := 0;
+        ht^.ht_Tracks[i][j].stp_FXbParam   := 0;
+        inc(j);
+      end;
+      inc(i);       // FPC: account for update
+      continue;
+    end;
+    
+    j := 0;
+    while (j < ht^.ht_TrackLength) do
+    begin
+      if( bptr[0] = $3f ) then
+      begin
+        ht^.ht_Tracks[i][j].stp_Note       := 0;
+        ht^.ht_Tracks[i][j].stp_Instrument := 0;
+        ht^.ht_Tracks[i][j].stp_FX         := 0;
+        ht^.ht_Tracks[i][j].stp_FXParam    := 0;
+        ht^.ht_Tracks[i][j].stp_FXb        := 0;
+        ht^.ht_Tracks[i][j].stp_FXbParam   := 0;
+        inc(bptr, 1);
+        inc(j);     // FPC: account for update
+        continue;
+      end;
+      
+      ht^.ht_Tracks[i][j].stp_Note       := bptr[0];
+      ht^.ht_Tracks[i][j].stp_Instrument := bptr[1];
+      ht^.ht_Tracks[i][j].stp_FX         := bptr[2] shr 4;
+      ht^.ht_Tracks[i][j].stp_FXParam    := bptr[3];
+      ht^.ht_Tracks[i][j].stp_FXb        := bptr[2] and $f;
+      ht^.ht_Tracks[i][j].stp_FXbParam   := bptr[4];
+      bptr := bptr + 5;
+      inc(j);
+    end;
+
+    inc(i);
+  end;
+
+
+  // Instruments
+  DebugLn('attempting to initialize instruments');
+
+  i := 1;
+  while (i <= ht^.ht_InstrumentNr) do
+  begin
+    if  ( nptr < pchar( buf+buflen ) ) then
+    begin
+      strlcopy( ht^.ht_Instruments[i].ins_Name, nptr, 128 );
+      nptr := nptr + strlen( nptr )+1;
+    end
+    else
+    begin
+      ht^.ht_Instruments[i].ins_Name[0] := #0;
+    end;
+
+    ht^.ht_Instruments[i].ins_Volume                := bptr[0];
+    ht^.ht_Instruments[i].ins_FilterSpeed           := ((bptr[1] shr 3) and $1f) or ((bptr[12] shr 2) and $20);
+    ht^.ht_Instruments[i].ins_WaveLength            := bptr[1] and $07;
+
+    ht^.ht_Instruments[i].ins_Envelope.aFrames      := bptr[2];
+    ht^.ht_Instruments[i].ins_Envelope.aVolume      := bptr[3];
+    ht^.ht_Instruments[i].ins_Envelope.dFrames      := bptr[4];
+    ht^.ht_Instruments[i].ins_Envelope.dVolume      := bptr[5];
+    ht^.ht_Instruments[i].ins_Envelope.sFrames      := bptr[6];
+    ht^.ht_Instruments[i].ins_Envelope.rFrames      := bptr[7];
+    ht^.ht_Instruments[i].ins_Envelope.rVolume      := bptr[8];
+
+    ht^.ht_Instruments[i].ins_FilterLowerLimit      := bptr[12] and $7f;
+    ht^.ht_Instruments[i].ins_VibratoDelay          := bptr[13];
+    ht^.ht_Instruments[i].ins_HardCutReleaseFrames  := (bptr[14] shr 4) and $07;
+    ht^.ht_Instruments[i].ins_HardCutRelease        := IIF(bptr[14] and $80 <> 0, byte(1), 0);
+    ht^.ht_Instruments[i].ins_VibratoDepth          := bptr[14] and $0f;
+    ht^.ht_Instruments[i].ins_VibratoSpeed          := bptr[15];
+    ht^.ht_Instruments[i].ins_SquareLowerLimit      := bptr[16];
+    ht^.ht_Instruments[i].ins_SquareUpperLimit      := bptr[17];
+    ht^.ht_Instruments[i].ins_SquareSpeed           := bptr[18];
+    ht^.ht_Instruments[i].ins_FilterUpperLimit      := bptr[19] and $3f;
+    ht^.ht_Instruments[i].ins_PList.pls_Speed       := bptr[20];
+    ht^.ht_Instruments[i].ins_PList.pls_Length      := bptr[21];
+
+
+    ht^.ht_Instruments[i].ins_PList.pls_Entries     := ple;
+    ple := ple + bptr[21];
+    
+    bptr := bptr + 22;
+    
+    j := 0;
+    while (j < ht^.ht_Instruments[i].ins_PList.pls_Length) do
+    begin
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FX[0]      := bptr[0] and $f;
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FX[1]      := (bptr[1] shr 3) and $f;
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_Waveform   := bptr[1] and 7;
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_Fixed      := (bptr[2] shr 6) and 1;
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_Note       := bptr[2] and $3f;
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FXParam[0] := bptr[3];
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FXParam[1] := bptr[4];
+      bptr := bptr + 5;
+      inc(j);
+    end;
+    inc(i);
+  end;
+
+  DebugLn('Attempting to initialize subsongs');
+  hvl_InitSubsong( ht, 0 );
+
+  FreeMem( buf );       // FPC: native memory handling
+  hvl_LoadTune := ht;
+end;
+
+
+
 end.

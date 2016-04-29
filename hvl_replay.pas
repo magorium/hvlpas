@@ -1461,4 +1461,123 @@ end;
 
 
 
+procedure hvl_process_stepfx_3(ht: Phvl_tune; voice: Phvl_voice; FX: int32; FXParam: int32);
+var
+  i: int32;
+label
+  CaseBreak4, CaseBreak0C, CaseBreak0E_0F;
+begin
+  case ( FX ) of
+    $01: // Portamento up (period slide down)
+    begin
+      voice^.vc_PeriodSlideSpeed     := -FXParam;
+      voice^.vc_PeriodSlideOn        := 1;
+      voice^.vc_PeriodSlideWithLimit := 0;
+    end;
+    
+    $02: // Portamento down
+    begin
+      voice^.vc_PeriodSlideSpeed     := FXParam;
+      voice^.vc_PeriodSlideOn        := 1;
+      voice^.vc_PeriodSlideWithLimit := 0;
+    end;
+
+    $04: // Filter override
+    begin
+      if ( ( FXParam = 0 ) or ( FXParam = $40 ) ) then goto CaseBreak4;
+      
+      if( FXParam < $40 ) then
+      begin
+        voice^.vc_IgnoreFilter := FXParam;
+        goto CaseBreak4;
+      end;
+      if ( FXParam > $7f ) then goto CaseBreak4;
+      voice^.vc_FilterPos := FXParam - $40;
+      
+      CaseBreak4:
+    end;
+
+    $0c: // Volume
+    begin
+      FXParam := FXParam and $ff;
+      if( FXParam <= $40 ) then
+      begin
+        voice^.vc_NoteMaxVolume := FXParam;
+        Goto CaseBreak0C;
+      end;
+      
+      FXParam := FXParam - $50;
+      if( ( FXParam ) < 0 ) then Goto CaseBreak0C;  // 1.6
+
+      if( FXParam <= $40 ) then
+      begin
+        for i := 0 to Pred(ht^.ht_Channels)
+        do ht^.ht_Voices[i].vc_TrackMasterVolume := FXParam;
+        goto CaseBreak0c;
+      end;
+
+      FXParam := FXParam - $a0 - $50;
+      if ( FXParam < 0 ) then goto CaseBreak0C; // 1.6
+
+      if( FXParam <= $40 )
+      then voice^.vc_TrackMasterVolume := FXParam;
+
+      CaseBreak0C:
+    end;
+
+    $e: // Extended commands;
+    begin
+      case( FXParam shr 4 ) of
+        $1: // Fineslide up
+        begin
+          voice^.vc_PeriodSlidePeriod := voice^.vc_PeriodSlidePeriod - (FXParam and $0f); // 1.8
+          voice^.vc_PlantPeriod := 1;
+        end;
+        
+        $2: // Fineslide down
+        begin
+          voice^.vc_PeriodSlidePeriod := voice^.vc_PeriodSlidePeriod + (FXParam and $0f); // 1.8
+          voice^.vc_PlantPeriod := 1;
+        end;
+        
+        $4: // Vibrato control
+        begin
+          voice^.vc_VibratoDepth := FXParam and $0f;
+        end;
+
+        $0a: // Fine volume up
+        begin
+          voice^.vc_NoteMaxVolume := voice^.vc_NoteMaxVolume + FXParam and $0f;
+          
+          if ( voice^.vc_NoteMaxVolume > $40 )
+          then voice^.vc_NoteMaxVolume := $40;
+        end;
+        
+        $0b: // Fine volume down
+        begin
+          voice^.vc_NoteMaxVolume := voice^.vc_NoteMaxVolume - FXParam and $0f;
+          
+          if ( voice^.vc_NoteMaxVolume < 0 )
+          then voice^.vc_NoteMaxVolume := 0;
+        end;
+        
+        $0f: // Misc flags (1.5)
+        begin
+          if ( ht^.ht_Version < 1 ) then goto CaseBreak0E_0F;
+          case ( FXParam and $f ) of
+            1:
+            begin
+              voice^.vc_OverrideTranspose := voice^.vc_Transpose;
+            end;
+          end; // case FXParam and $f of
+
+          CaseBreak0E_0F:
+        end; // case $0f of misc flags
+      end; // case FXParam shr 4
+    end;  // case $e
+  end; // case FX
+end;
+
+
+
 end.

@@ -1580,4 +1580,181 @@ end;
 
 
 
+procedure hvl_process_step(ht: Phvl_tune; voice: Phvl_voice);
+var
+  Note, Instr, donenotedel : int32;
+  Step: Phvl_step;
+var
+  Ins: Phvl_instrument;
+  SquareLower, SquareUpper, d6, d3, d4: int16;
+var
+  t: int16;
+begin  
+  if ( voice^.vc_TrackOn = 0 )
+  then exit;
+  
+  voice^.vc_VolumeSlideUp   := 0; 
+  voice^.vc_VolumeSlideDown := 0;
+  
+  Step := @ht^.ht_Tracks[ht^.ht_Positions[ht^.ht_PosNr].pos_Track[voice^.vc_VoiceNum]] [ht^.ht_NoteNr];
+  
+  Note    := Step^.stp_Note;
+  Instr   := Step^.stp_Instrument;
+
+  // --------- 1.6: from here --------------
+
+  donenotedel := 0;
+
+  // Do notedelay here
+  if( ((Step^.stp_FX and $f) = $e) and ((Step^.stp_FXParam and $f0) = $d0) ) then
+  begin
+    if ( voice^.vc_NoteDelayOn <> 0 ) then
+    begin
+      voice^.vc_NoteDelayOn := 0;
+      donenotedel := 1;
+    end
+    else
+    begin
+      if ( (Step^.stp_FXParam and $0f) < ht^.ht_Tempo ) then
+      begin
+        voice^.vc_NoteDelayWait := Step^.stp_FXParam and $0f;
+        if( voice^.vc_NoteDelayWait <> 0) then
+        begin
+          voice^.vc_NoteDelayOn := 1;
+          exit;
+        end;
+      end;
+    end;
+  end;
+
+  if ( (donenotedel = 0) and ((Step^.stp_FXb and $f) = $e) and ((Step^.stp_FXbParam and $f0) = $d0) ) then
+  begin
+    if ( voice^.vc_NoteDelayOn <> 0 ) then
+    begin
+      voice^.vc_NoteDelayOn := 0;
+    end
+    else
+    begin
+      if ( (Step^.stp_FXbParam and $0f) < ht^.ht_Tempo ) then
+      begin
+        voice^.vc_NoteDelayWait := Step^.stp_FXbParam and $0f;
+        if ( voice^.vc_NoteDelayWait <> 0 ) then
+        begin
+          voice^.vc_NoteDelayOn := 1;
+          exit;
+        end;
+      end;
+    end;
+  end;
+
+  // --------- 1.6: to here --------------
+
+  if ( Note <> 0 ) then voice^.vc_OverrideTranspose := 1000; // 1.5
+
+  hvl_process_stepfx_1( ht, voice, Step^.stp_FX  and $f, Step^.stp_FXParam  );  
+  hvl_process_stepfx_1( ht, voice, Step^.stp_FXb and $f, Step^.stp_FXbParam );
+  
+  if ( ( Instr <> 0 ) and ( Instr <= ht^.ht_InstrumentNr ) ) then
+  begin
+
+    //* 1.4: Reset panning to last set position */
+    voice^.vc_Pan               := voice^.vc_SetPan;
+    voice^.vc_PanMultLeft       := panning_left[voice^.vc_Pan];
+    voice^.vc_PanMultRight      := panning_right[voice^.vc_Pan];
+
+    voice^.vc_PeriodSlideSpeed  := 0; voice^.vc_PeriodSlidePeriod := 0; voice^.vc_PeriodSlideLimit := 0;
+
+    voice^.vc_PerfSubVolume     := $40;
+    voice^.vc_ADSRVolume        := 0;
+    voice^.vc_Instrument        := @ht^.ht_Instruments[Instr]; Ins := @ht^.ht_Instruments[Instr];
+    voice^.vc_SamplePos         := 0;
+
+    voice^.vc_ADSR.aFrames      := Ins^.ins_Envelope.aFrames;
+    voice^.vc_ADSR.aVolume      := Ins^.ins_Envelope.aVolume * 256 div voice^.vc_ADSR.aFrames;
+    voice^.vc_ADSR.dFrames      := Ins^.ins_Envelope.dFrames;
+    voice^.vc_ADSR.dVolume      := (Ins^.ins_Envelope.dVolume - Ins^.ins_Envelope.aVolume)*256 div voice^.vc_ADSR.dFrames;
+    voice^.vc_ADSR.sFrames      := Ins^.ins_Envelope.sFrames;
+    voice^.vc_ADSR.rFrames      := Ins^.ins_Envelope.rFrames;
+    voice^.vc_ADSR.rVolume      := (Ins^.ins_Envelope.rVolume - Ins^.ins_Envelope.dVolume)*256 div voice^.vc_ADSR.rFrames;
+
+    voice^.vc_WaveLength        := Ins^.ins_WaveLength;
+    voice^.vc_NoteMaxVolume     := Ins^.ins_Volume;
+
+    voice^.vc_VibratoCurrent    := 0;
+    voice^.vc_VibratoDelay      := Ins^.ins_VibratoDelay;
+    voice^.vc_VibratoDepth      := Ins^.ins_VibratoDepth;
+    voice^.vc_VibratoSpeed      := Ins^.ins_VibratoSpeed;
+    voice^.vc_VibratoPeriod     := 0;
+
+    voice^.vc_HardCutRelease    := Ins^.ins_HardCutRelease;
+    voice^.vc_HardCut           := Ins^.ins_HardCutReleaseFrames;
+
+    voice^.vc_IgnoreSquare := 0; voice^.vc_SquareSlidingIn := 0;
+    voice^.vc_SquareWait   := 0; voice^.vc_SquareOn        := 0;
+    
+    SquareLower := Ins^.ins_SquareLowerLimit shr (5 - voice^.vc_WaveLength);
+    SquareUpper := Ins^.ins_SquareUpperLimit shr (5 - voice^.vc_WaveLength);
+
+    if( SquareUpper < SquareLower ) then
+    begin
+      t           := SquareUpper;
+      SquareUpper := SquareLower;
+      SquareLower := t;
+    end;
+    
+    voice^.vc_SquareUpperLimit := SquareUpper;
+    voice^.vc_SquareLowerLimit := SquareLower;
+    
+    voice^.vc_IgnoreFilter    := 0; voice^.vc_FilterWait := 0; voice^.vc_FilterOn := 0;
+    voice^.vc_FilterSlidingIn := 0;
+
+    d6 := Ins^.ins_FilterSpeed;
+    d3 := Ins^.ins_FilterLowerLimit;
+    d4 := Ins^.ins_FilterUpperLimit;
+    
+    if ( d3 and $80 <> 0) then d6 := d6 or $20;
+    if ( d4 and $80 <> 0) then d6 := d6 or $40;
+    
+    voice^.vc_FilterSpeed := d6;
+    d3 := d3 and (not $80);
+    d3 := d4 and (not $80);
+    
+    if( d3 > d4 ) then
+    begin
+      t  := d3;
+      d3 := d4;
+      d4 :=  t;
+    end;
+
+    voice^.vc_FilterUpperLimit := d4;
+    voice^.vc_FilterLowerLimit := d3;
+    voice^.vc_FilterPos        := 32;
+
+    voice^.vc_PerfWait  := 0; voice^.vc_PerfCurrent := 0;
+    voice^.vc_PerfSpeed := Ins^.ins_PList.pls_Speed;
+    voice^.vc_PerfList  := @voice^.vc_Instrument^.ins_PList;
+
+    voice^.vc_RingMixSource   := nil;   // No ring modulation
+    voice^.vc_RingSamplePos   := 0;
+    voice^.vc_RingPlantPeriod := 0;
+    voice^.vc_RingNewWaveform := 0;
+  end;
+
+  voice^.vc_PeriodSlideOn := 0;
+
+  hvl_process_stepfx_2( ht, voice, Step^.stp_FX  and $f, Step^.stp_FXParam,  @Note );  
+  hvl_process_stepfx_2( ht, voice, Step^.stp_FXb and $f, Step^.stp_FXbParam, @Note );
+
+  if (Note <> 0) then
+  begin
+    voice^.vc_TrackPeriod := Note;
+    voice^.vc_PlantPeriod := 1;
+  end;
+
+  hvl_process_stepfx_3( ht, voice, Step^.stp_FX  and $f, Step^.stp_FXParam  );
+  hvl_process_stepfx_3( ht, voice, Step^.stp_FXb and $f, Step^.stp_FXbParam );
+end;
+
+
+
 end.

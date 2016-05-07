@@ -2652,4 +2652,23 @@ begin
 end;
 
 
+
+procedure hvl_DecodeFrame( ht: Phvl_tune; buf1: pint8; buf2: pint8; bufmod: int32 );
+var
+  samples, loops: uint32;
+begin
+  samples := ht^.ht_Frequency div 50 div ht^.ht_SpeedMultiplier;
+  loops   := ht^.ht_SpeedMultiplier;
+  
+  repeat
+    hvl_play_irq( ht );
+    hvl_mixchunk( ht, samples, buf1, buf2, bufmod );
+    buf1 := buf1 + ( samples * bufmod );
+    buf2 := buf2 + ( samples * bufmod );
+    loops := loops - 1;
+  until (loops <= 0);  // do ... while (loops)
+end;
+
+
+
 end.

@@ -6,7 +6,25 @@ unit replay;
 *)
 
 
+{$H+}
+
+
 interface
+
+
+uses
+  chelpers;
+
+
+
+{$IFDEF WINDOWS}
+Type
+  pint8                     = ^int8;
+  pint16                    = ^int16;
+  pint32                    = ^int32;
+  puint8                    = ^uint8;
+  puint16                   = ^uint16;
+{$ENDIF}
 
 
 

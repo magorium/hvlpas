@@ -234,5 +234,16 @@ Type
 implementation
 
 
+Uses
+  simpledebug, sysutils;
+
+
+
+function Period2Freq(period: int16): float64; inline;
+begin
+  Period2Freq := (3546897.0 * 65536.0) / (period);
+end;
+
+
 
 end.

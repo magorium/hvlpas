@@ -324,7 +324,7 @@ Var
 
 procedure hvl_GenPanningTables;
 var
-  i         : uint32;
+  i         : int32;
   aa, ab    : float64;
 begin
   // Sine based panning table
@@ -335,7 +335,7 @@ begin
   begin
     panning_left[i]  := uint32( trunc ( sin(aa) * 255.0 ) ); // FPC: requires truncation
     panning_right[i] := uint32( trunc ( sin(ab) * 255.0 ) ); // FPC: requires truncation
-    
+
     aa := aa + (3.14159265 * 2.0 / 4.0) / 256.0;
     ab := ab + (3.14159265 * 2.0 / 4.0) / 256.0;
   end;

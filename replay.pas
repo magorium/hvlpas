@@ -246,4 +246,33 @@ end;
 
 
 
+Var
+  panning_left  : array [0..Pred(256)] of uint32;
+  panning_right : array [0..Pred(256)] of uint32;
+
+
+
+procedure hvl_GenPanningTables;
+var
+  i         : int32;
+  aa, ab    : float64;
+begin
+  // Sine based panning table
+  aa := (3.14159265*2.0) / 4.0;   // Quarter of the way through the sinewave == top peak
+  ab := 0.0;                      // Start of the climb from zero
+
+  for i := 0 to Pred(256) do 
+  begin
+    panning_left[i]  := uint32( trunc ( sin(aa) * 255.0 ) ); // FPC: requires truncation
+    panning_right[i] := uint32( trunc ( sin(ab) * 255.0 ) ); // FPC: requires truncation
+
+    aa := aa + (3.14159265 * 2.0 / 4.0) / 256.0;
+    ab := ab + (3.14159265 * 2.0 / 4.0) / 256.0;
+  end;
+  panning_left[255] := 0;
+  panning_right[0]  := 0;
+end;
+
+
+
 end.

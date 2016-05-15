@@ -297,4 +297,57 @@ end;
 
 
 
+procedure hvl_GenTriangle(buf: pint8; len: uint32);
+var
+  i              : int32;
+  d1, d2, d4, d5 : int32;
+  val            : int32;
+  buf2           : pint8;
+  c              : int8;
+begin
+  d2  := len;
+  d5  := len shr 2;
+  d1  := 128 div d5;
+
+  d4  := -(d2 shr 1);
+  val := 0;
+
+  for i := 0 to Pred(d5) do
+  begin
+    buf^ := val;
+    buf := buf + 1;
+    val := val + d1;
+  end;
+  buf^ := $7f;
+  buf := buf + 1;
+
+  if ( d5 <> 1 ) then
+  begin
+    val := 128;
+
+    for i := 0 to Pred(d5-1) do
+    begin
+      val := val - d1;
+      buf^ := val;
+      buf := buf + 1;
+    end;
+  end;
+
+  buf2 := buf + d4;
+  for i := 0 to Pred(d5 * 2) do
+  begin
+    c := buf2^;
+    buf2 := buf2 + 1;
+
+    if ( c = $7f )
+    then c := int8($80)                     // FPC: cast to suppress warning
+    else c := -c;
+
+    buf^ := c;
+    buf := buf + 1;
+  end;
+end;
+
+
+
 end.

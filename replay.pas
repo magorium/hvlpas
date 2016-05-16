@@ -350,4 +350,26 @@ end;
 
 
 
+procedure hvl_GenSquare(buf: pint8);
+var
+  i, j: int32;
+begin
+  for i := 1 to $20 do
+  begin
+    for j := 0 to Pred(($40 - i) * 2) do
+    begin
+      buf^ := int8($80);                    // FPC: cast to suppress warning
+      buf := buf + 1;
+    end;
+
+    for j := 0 to Pred(i * 2) do
+    begin
+      buf^ := $7f;
+      buf := buf + 1;
+    end;
+  end;
+end;
+
+
+
 end.

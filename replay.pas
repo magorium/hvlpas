@@ -383,4 +383,73 @@ end;
 
 
 
+procedure hvl_GenFilterWaves(buf: pint8; lowbuf: pint8; highbuf: pint8);
+const
+  lentab : array[0..Pred(45)] of uint16 =
+  (
+    3, 7, $f, $1f, $3f, $7f,
+    3, 7, $f, $1f, $3f, $7f,
+    $7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,
+    $7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,$7f,
+    ($280*3)-1
+  );
+var
+  freq  : float64;
+  temp  : uint32;
+
+  wv    : uint32;
+  a0    : pint8;
+
+  fre,
+  high,
+  mid,
+  low   : float64;
+
+  i     : uint32;
+begin
+  freq := 8.0;
+
+  for temp := 0 to Pred(31) do
+  begin
+    a0  := buf;
+
+    for wv := 0 to Pred(6+6+$20+1) do
+    begin
+      mid := 0.0;
+      low := 0.0;
+      fre := freq * 1.25 / 100.0;
+
+      for i := 0 to lentab[wv] do           // FPC: Note <= lentab[wv]
+      begin
+        high  := a0[i] - mid - low;
+        high  := clip( high );
+        mid   := mid + (high * fre);
+        mid   := clip( mid );
+        low   := low + (mid * fre);
+        low   := clip( low );
+      end;
+
+      for i := 0 to lentab[wv] do           // FPC: Note <= lentab[wv]
+      begin
+        high  := a0[i] - mid - low;
+        high  := clip( high );
+        mid   := mid + (high * fre);
+        mid   := clip( mid );
+        low   := low + (mid * fre);
+        low   := clip( low );
+        lowbuf^  := int8( trunc(low) );     // FPC: requires truncation
+        lowbuf   := lowbuf + 1;
+        highbuf^ := int8( trunc(high) );    // FPC: requires truncation
+        highbuf  := highbuf + 1;
+      end;
+
+      a0 := a0 + lentab[wv]+1;
+    end; // next wv
+
+    freq := freq + 3.0;
+  end; // next temp
+end;
+
+
+
 end.

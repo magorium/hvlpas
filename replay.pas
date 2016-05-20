@@ -246,6 +246,12 @@ end;
 
 
 
+var
+  stereopan_left    : array[0..4] of int32 = ( 128,  96,  64,  32,   0 );
+  stereopan_right   : array[0..4] of int32 = ( 128, 160, 193, 225, 255 );
+
+
+
 Var
   panning_left  : array [0..Pred(256)] of uint32;
   panning_right : array [0..Pred(256)] of uint32;

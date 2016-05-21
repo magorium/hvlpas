@@ -563,7 +563,7 @@ end;
 
 procedure hvl_reset_some_stuff(ht: Phvl_tune);
 var
-  i : uint32;
+  i : int32;            // FPC: prefer integer type
 begin
   for i := 0 to Pred(MAX_CHANNELS) do
   begin
@@ -664,10 +664,10 @@ begin
     ht^.ht_Voices[i].vc_RingMixSource         := nil;
     ht^.ht_Voices[i].vc_RingAudioSource       := nil;
 
-    memset(@ht^.ht_Voices[i].vc_SquareTempBuffer[0], 0, $80);   // FPC
+    memset(@ht^.ht_Voices[i].vc_SquareTempBuffer   , 0, $80);
     memset(@ht^.ht_Voices[i].vc_ADSR               , 0, sizeof(Thvl_envelope));
-    memset(@ht^.ht_Voices[i].vc_VoiceBuffer[0]     , 0, $281);  // FPC
-    memset(@ht^.ht_Voices[i].vc_RingVoiceBuffer[0] , 0, $281);  // FPC
+    memset(@ht^.ht_Voices[i].vc_VoiceBuffer        , 0, $281);
+    memset(@ht^.ht_Voices[i].vc_RingVoiceBuffer    , 0, $281);
   end;
 
   for i := 0 to Pred(MAX_CHANNELS) do
@@ -676,7 +676,7 @@ begin
     ht^.ht_Voices[i].vc_VoiceNum          := i;
     ht^.ht_Voices[i].vc_TrackMasterVolume := $40;
     ht^.ht_Voices[i].vc_TrackOn           := 1;
-    ht^.ht_Voices[i].vc_MixSource         := @ht^.ht_Voices[i].vc_VoiceBuffer[0];  // FPC
+    ht^.ht_Voices[i].vc_MixSource         := ht^.ht_Voices[i].vc_VoiceBuffer;
   end;
 end;
 

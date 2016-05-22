@@ -684,8 +684,8 @@ end;
 
 function  hvl_InitSubsong(ht: Phvl_tune; nr: uint32): LongBool;
 var
-  PosNr : uint16;       // FPC
-  i     : uint32;
+  PosNr : uint16;
+  i     : int32;        // FPC: prefer integer type
 begin
   if ( nr > ht^.ht_SubsongNr )
   then exit(false);

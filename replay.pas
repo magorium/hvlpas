@@ -728,4 +728,246 @@ end;
 
 
 
+function  hvl_load_ahx(buf: puint8; buflen: uint32; defstereo: uint32; freq: uint32): Phvl_tune;
+var
+  bptr      : puint8;
+  nptr      : pchar;
+  i,j       : int32;        // FPC: prefer integer type
+  k, l,
+  posn,
+  insn, ssn,
+  hs, trkn,
+  trkl      : uint32;
+  ht        : Phvl_tune;
+  ple       : Phvl_plsentry;
+const
+  defgain   : array[0..4] of int32 = (71, 72, 76, 85, 100);
+begin
+  posn := ((buf[6] and $0f) shl 8) or buf[7];
+  insn := buf[12];
+  ssn  := buf[13];
+  trkl := buf[10];
+  trkn := buf[11];
+
+  hs  :=       sizeof( Thvl_tune       );
+  hs  := hs + (sizeof( Thvl_position   ) * posn);
+  hs  := hs + (sizeof( Thvl_instrument ) * (insn+1));
+  hs  := hs + (sizeof( uint16          ) * ssn);
+
+  // Calculate the size of all instrument PList buffers
+  bptr :=        @buf[14];
+  bptr := bptr + (ssn*2);     // Skip past the subsong list
+  bptr := bptr + (posn*4*2);  // Skip past the positions
+  bptr := bptr + (trkn*trkl*3);
+  if ((buf[6] and $80) = 0) then bptr := bptr + (trkl*3);
+
+  // *NOW* we can finally calculate PList space
+  for i := 1 to insn do     // Note: i <= insn
+  begin
+    hs   :=   hs +      (bptr[21] * sizeof( Thvl_plsentry ));
+    bptr := bptr + (22 + bptr[21] * 4);
+  end;
+
+  ht := GetMem( hs );       // FPC: native memory handling
+  if not(ht <> nil) then
+  begin
+    FreeMem( buf );         // FPC: native memory handling
+    WriteLn( 'Out of memory!' );
+    exit( nil );
+  end;
+  DebugLn('allocated ht memory');
+
+  ht^.ht_Frequency       := freq;
+  ht^.ht_FreqF           := float64(freq);
+
+  ht^.ht_Positions       := Phvl_position(@ht[1]);
+  ht^.ht_Instruments     := Phvl_instrument(@ht^.ht_Positions[posn]);
+  ht^.ht_Subsongs        := puint16(@ht^.ht_Instruments[(insn+1)]);
+  ple                    := Phvl_plsentry(@ht^.ht_Subsongs[ssn]);
+
+  ht^.ht_WaveformTab[0]  := @waves[WO_TRIANGLE_04];
+  ht^.ht_WaveformTab[1]  := @waves[WO_SAWTOOTH_04];
+  ht^.ht_WaveformTab[3]  := @waves[WO_WHITENOISE];
+
+  ht^.ht_Channels        := 4;
+  ht^.ht_PositionNr      := posn;
+  ht^.ht_Restart         := (buf[8] shl 8) or buf[9];
+  ht^.ht_SpeedMultiplier := ((buf[6] shr 5) and 3)+1;
+  ht^.ht_TrackLength     := trkl;
+  ht^.ht_TrackNr         := trkn;
+  ht^.ht_InstrumentNr    := insn;
+  ht^.ht_SubsongNr       := ssn;
+  ht^.ht_defstereo       := defstereo;
+  ht^.ht_defpanleft      := stereopan_left[ht^.ht_defstereo];
+  ht^.ht_defpanright     := stereopan_right[ht^.ht_defstereo];
+  ht^.ht_mixgain         := (defgain[ht^.ht_defstereo]*256) div 100;
+
+  if ( ht^.ht_Restart >= ht^.ht_PositionNr )
+  then ht^.ht_Restart := ht^.ht_PositionNr-1;
+
+  // Do some validation  
+  if ( ( ht^.ht_PositionNr   > 1000 ) or
+       ( ht^.ht_TrackLength  >   64 ) or
+       ( ht^.ht_InstrumentNr >   64 ) ) then
+  begin
+    WriteLn( Format( '%d,%d,%d', [ ht^.ht_PositionNr,
+                          ht^.ht_TrackLength,
+                          ht^.ht_InstrumentNr ] ));
+
+    FreeMem( ht );          // FPC: native memory handling
+    FreeMem( buf );         // FPC: native memory handling
+    WriteLn( 'Invalid file.' );
+    exit(nil);
+  end;
+
+  DebugLn('validation passed');
+
+  strlcopy( ht^.ht_Name, pchar( @buf[(buf[4] shl 8) or buf[5]]), 128 );
+  nptr := pchar( @buf[((buf[4] shl 8) or buf[5] )   + strlen( ht^.ht_Name ) +1]);
+
+  bptr := @buf[14];
+
+  // Subsongs
+  DebugLn('initializing #%d subsongs', [ht^.ht_SubsongNr]);
+
+  for i := 0 to Pred(ht^.ht_SubsongNr) do
+  begin
+    DebugLn( ' init subsong ', [i]);
+
+    ht^.ht_Subsongs[i] := (bptr[0] shl 8) or bptr[1];
+    if ( ht^.ht_Subsongs[i] >= ht^.ht_PositionNr )
+    then ht^.ht_Subsongs[i] := 0;
+    bptr := bptr + 2;
+  end;
+
+  // Position list
+  DebugLn('initializing #%d list positions', [ht^.ht_PositionNr]);
+
+  for i := 0 to Pred(ht^.ht_PositionNr) do 
+  begin
+    for j := 0 to Pred(4) do
+    begin
+      ht^.ht_Positions[i].pos_Track[j]     := bptr^;
+      bptr := bptr + 1;
+      ht^.ht_Positions[i].pos_Transpose[j] := pint8(bptr)^;
+      bptr := bptr + 1;
+    end;
+  end;
+
+  // Tracks
+  DebugLn('initializing #%d tracks', [ht^.ht_TrackNr]);
+
+  for i := 0 to ht^.ht_TrackNr do       // Note: i <= ht^.ht_TrackNr
+  begin
+    if ( ( ( buf[6] and $80 ) = $80 ) and ( i = 0 ) ) then
+    begin
+      for j := 0 to Pred(ht^.ht_TrackLength) do
+      begin
+        ht^.ht_Tracks[i][j].stp_Note       := 0;
+        ht^.ht_Tracks[i][j].stp_Instrument := 0;
+        ht^.ht_Tracks[i][j].stp_FX         := 0;
+        ht^.ht_Tracks[i][j].stp_FXParam    := 0;
+        ht^.ht_Tracks[i][j].stp_FXb        := 0;
+        ht^.ht_Tracks[i][j].stp_FXbParam   := 0;
+      end;
+      continue;
+    end;
+
+    for j := 0 to Pred(ht^.ht_TrackLength) do
+    begin
+      ht^.ht_Tracks[i][j].stp_Note       := (bptr[0] shr 2) and $3f;
+      ht^.ht_Tracks[i][j].stp_Instrument := ((bptr[0] and $3) shl 4) or (bptr[1] shr 4);
+      ht^.ht_Tracks[i][j].stp_FX         := bptr[1] and $f;
+      ht^.ht_Tracks[i][j].stp_FXParam    := bptr[2];
+      ht^.ht_Tracks[i][j].stp_FXb        := 0;
+      ht^.ht_Tracks[i][j].stp_FXbParam   := 0;
+      bptr := bptr + 3;
+    end;
+  end;
+
+  // Instruments
+  DebugLn('initializing #%d instruments', [ht^.ht_InstrumentNr]);
+
+  for i := 1 to ht^.ht_InstrumentNr do  // Note: i <= ht^.ht_InstrumentNr
+  begin
+    if ( nptr < pchar(buf+buflen) ) then
+    begin
+      strlcopy( ht^.ht_Instruments[i].ins_Name, nptr, 128 );
+      nptr := nptr + strlen( nptr ) + 1;
+    end
+    else
+    begin
+      ht^.ht_Instruments[i].ins_Name[0] := #0;
+    end;
+
+    ht^.ht_Instruments[i].ins_Volume                := bptr[0];
+    ht^.ht_Instruments[i].ins_FilterSpeed           := ((bptr[1] shr 3) and $1f) or ((bptr[12] shr 2) and $20);
+    ht^.ht_Instruments[i].ins_WaveLength            := bptr[1] and $07;
+
+    ht^.ht_Instruments[i].ins_Envelope.aFrames      := bptr[2];
+    ht^.ht_Instruments[i].ins_Envelope.aVolume      := bptr[3];
+    ht^.ht_Instruments[i].ins_Envelope.dFrames      := bptr[4];
+    ht^.ht_Instruments[i].ins_Envelope.dVolume      := bptr[5];
+    ht^.ht_Instruments[i].ins_Envelope.sFrames      := bptr[6];
+    ht^.ht_Instruments[i].ins_Envelope.rFrames      := bptr[7];
+    ht^.ht_Instruments[i].ins_Envelope.rVolume      := bptr[8];
+
+    ht^.ht_Instruments[i].ins_FilterLowerLimit      := bptr[12] and $7f;
+    ht^.ht_Instruments[i].ins_VibratoDelay          := bptr[13];
+    ht^.ht_Instruments[i].ins_HardCutReleaseFrames  := (bptr[14] shr 4) and $07;
+
+    if ( (bptr[14] and $80) <> 0 )
+    then ht^.ht_Instruments[i].ins_HardCutRelease   := 1
+    else ht^.ht_Instruments[i].ins_HardCutRelease   := 0;
+
+    ht^.ht_Instruments[i].ins_VibratoDepth          := bptr[14] and $0f;
+    ht^.ht_Instruments[i].ins_VibratoSpeed          := bptr[15];
+    ht^.ht_Instruments[i].ins_SquareLowerLimit      := bptr[16];
+    ht^.ht_Instruments[i].ins_SquareUpperLimit      := bptr[17];
+    ht^.ht_Instruments[i].ins_SquareSpeed           := bptr[18];
+    ht^.ht_Instruments[i].ins_FilterUpperLimit      := bptr[19] and $3f;
+    ht^.ht_Instruments[i].ins_PList.pls_Speed       := bptr[20];
+    ht^.ht_Instruments[i].ins_PList.pls_Length      := bptr[21];
+
+    ht^.ht_Instruments[i].ins_PList.pls_Entries     := ple;
+    ple := ple + bptr[21];
+
+    bptr := bptr + 22;
+    for j := 0 to Pred( ht^.ht_Instruments[i].ins_PList.pls_Length ) do
+    begin
+      k := ( bptr[0] shr 5 ) and 7;
+      if ( k = 6 ) then k := 12;
+      if ( k = 7 ) then k := 15;
+      l := ( bptr[0] shr 2 ) and 7;
+      if ( l = 6 ) then l := 12;
+      if ( l = 7 ) then l := 15;
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FX[1]      := k;
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FX[0]      := l;
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_Waveform   := ((bptr[0] shl 1) and 6) or (bptr[1] shr 7);
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_Fixed      := (bptr[1] shr 6) and 1;
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_Note       := bptr[1] and $3f;
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FXParam[0] := bptr[2];
+      ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FXParam[1] := bptr[3];
+
+      // 1.6: Strip "toggle filter" commands if the module is
+      //      version 0 (pre-filters). This is what AHX also does.
+      if ( ( buf[3] = 0 ) and ( l = 4 ) and ( (bptr[2] and $f0) <> 0 ) )
+      then ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FXParam[0] := ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FXParam[0] and $0f;
+      if ( ( buf[3] = 0 ) and ( k = 4 ) and ( (bptr[3] and $f0) <> 0 ) )
+      then ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FXParam[1] := ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FXParam[1] and $0f; //1.8
+
+      bptr := bptr + 4;
+    end;
+  end;
+
+  DebugLn('Initializing subsongs...');
+  hvl_InitSubsong( ht, 0 );
+  DebugLn(' Done!');
+  FreeMem( buf );       // FPC: native memory handling
+
+  hvl_load_ahx := ht;
+end;
+
+
+
 end.

@@ -1005,8 +1005,14 @@ var
   ht        : Phvl_tune;
   buf, bptr : Puint8;
   nptr      : pchar;
-  buflen, i, j, posn, insn, ssn, chnn, hs, trkl, trkn: uint32;
-  ple       : Phvl_plsentry;  
+  i, j      : int32;    // FPC: prefer integer type
+  buflen,
+  posn,
+  insn, ssn,
+  chnn, hs,
+  trkl,
+  trkn      : uint32;
+  ple       : Phvl_plsentry;
 var  // FPC: specifics
   fh        : Longint; // THandle;
   nbytes    : longint;
@@ -1063,43 +1069,41 @@ begin
   //
   // usual analysis follows
   //
-  if( ( buf[0] = uint8('T') ) and
-      ( buf[1] = uint8('H') ) and
-      ( buf[2] = uint8('X') ) and
-      ( buf[3] < 3 ) )
+  if ( ( buf[0] = uint8('T') ) and
+       ( buf[1] = uint8('H') ) and
+       ( buf[2] = uint8('X') ) and
+       ( buf[3] < 3 ) )
   then exit(hvl_load_ahx( buf, buflen, defstereo, freq ));
 
-  if( ( buf[0] <> uint8('H') ) or
-      ( buf[1] <> uint8('V') ) or
-      ( buf[2] <> uint8('L') ) or
-      ( buf[3] > 1 ) )  then // 1.5
+  if ( ( buf[0] <> uint8('H') ) or
+       ( buf[1] <> uint8('V') ) or
+       ( buf[2] <> uint8('L') ) or
+       ( buf[3] > 1 ) )  then // 1.5
   begin
     FreeMem( buf );
-    writeln( 'Invalid file.' );
+    WriteLn( 'Invalid file.' );
     exit ( nil );
   end;
-  
-  DebugLn('constructing hvl');
-  
-  //  buf[4] + buf[5] = length of song without instrument(s) or instrument names
-  
-  posn := ((buf[6] and $0f) shl 8) or buf[7];       // number of positions ? (in position editor, starts counting from zero) noted in editor as songlength
-  insn := buf[12];                                  // number of instruments (editor starts counting at 1)
-  ssn  := buf[13];                                  // number of subsongs
-  chnn := (buf[8] shr 2) + 4;                       // numbers of channels.. e.g. $10 = 16 shr 2 = 4 + 4 = 8 tracks
-  trkl := buf[10];                                  // tracklength (editor start counting from 0, e.g. 64 means 0-63)
-  trkn := buf[11];                                  // number of tracks ???? i've seen #90 = $5A, so no idea atm
 
-  hs :=      sizeof( Thvl_tune       );              // reserve room for tune
-  hs := hs + sizeof( Thvl_position   ) * posn;       // reserve room for positions
-  hs := hs + sizeof( Thvl_instrument ) * (insn+1);   // reserve room for instruments
-  hs := hs + sizeof( uint16          ) * ssn;        // reserve room for subsong numbers ?
+  DebugLn('constructing hvl');
+
+  posn := ((buf[6] and $0f) shl 8) or buf[7];           // number of positions
+  insn := buf[12];                                      // number of instruments (editor starts counting at 1)
+  ssn  := buf[13];                                      // number of subsongs
+  chnn := (buf[8] shr 2) + 4;                           // numbers of channels.. e.g. $10 = 16 shr 2 = 4 + 4 = 8 tracks
+  trkl := buf[10];                                      // tracklength (editor start counting from 0, e.g. 64 means 0-63)
+  trkn := buf[11];                                      // number of tracks
+
+  hs :=      sizeof( Thvl_tune       );                 // reserve room for tune
+  hs := hs + (sizeof( Thvl_position   ) * posn);        // reserve room for positions
+  hs := hs + (sizeof( Thvl_instrument ) * (insn+1));    // reserve room for instruments
+  hs := hs + (sizeof( uint16          ) * ssn);         // reserve room for subsong numbers ?
 
   // Calculate the size of all instrument PList buffers
   bptr := @buf[16];
   bptr := bptr + (ssn*2);       // Skip past subsong list
   bptr := bptr + (posn*chnn*2); // Skip past positions
-  
+
 
   // Skip past the tracks
   // 1.4: Fixed two really stupid bugs that cancelled each other
@@ -1108,38 +1112,34 @@ begin
   if (buf[6] and $80) = $80 
   then i := 1 
   else i := 0;
-  
+
   while (i <= trkn) do
   begin
-    j := 0;
-    while (j < trkl) do
+    for j := 0 to Pred(trkl) do
     begin
       if ( bptr[0] = $3f ) then
       begin
-        inc(bptr, 1);
-        continue;       // FIXME: Does counter j need to be increased or not ?
+        bptr := bptr + 1;
+        continue;
       end;
       bptr := bptr + 5;
-      inc(j);
     end;
     inc(i);
   end;
 
   // *NOW* we can finally calculate PList space
-  i := 1;
-  while (i <= insn) do
+  for i := 1 to insn do     // Note: i <= insn
   begin
     hs   :=   hs + (      bptr[21] * sizeof( Thvl_plsentry ) );
     bptr := bptr + ( 22 + bptr[21] * 5 );
-    inc(i);
   end;
 
   ht := GetMem( hs );       // FPC: native memory handling
   if not( ht <> nil ) then
   begin
     FreeMem( buf );         // FPC: native memory handling
-    writeln( 'Out of memory!' );
-    exit ( nil );
+    WriteLn( 'Out of memory!' );
+    exit( nil );
   end;
   DebugLn('allocated ht memory');
 
@@ -1178,61 +1178,56 @@ begin
        ( ht^.ht_TrackLength  >   64 ) or
        ( ht^.ht_InstrumentNr >   64 ) ) then
   begin
-    writeln(format( '%d,%d,%d', 
-    [ 
+    WriteLn(Format( '%d,%d,%d', 
+    [
       ht^.ht_PositionNr,
       ht^.ht_TrackLength,
-      ht^.ht_InstrumentNr 
+      ht^.ht_InstrumentNr
     ] ));
     FreeMem( ht );      // FPC: native memory handling
     FreeMem( buf );     // FPC: native memory handling
-    writeln( 'Invalid file.' );
-    exit ( nil );
+    WriteLn( 'Invalid file.' );
+    exit( nil );
   end;
 
   DebugLn('validation passed');
-  
+
   strlcopy( ht^.ht_Name, pchar(@buf[(buf[4] shl 8) or buf[5]]), 128 );
   nptr := pchar(@buf[((buf[4] shl 8) or buf[5]) + strlen( ht^.ht_Name )+1]);
 
   bptr := @buf[16];
 
   // Subsongs
-  DebugLn('initialize subsongs #', [ht^.ht_SubsongNr]);
-  i := 0;
-  while (i < ht^.ht_SubsongNr) do
+  DebugLn('initialize #%d subsongs', [ht^.ht_SubsongNr]);
+
+  for i := 0 to Pred(int32(ht^.ht_SubsongNr)) do
   begin
     ht^.ht_Subsongs[i] := (bptr[0] shl 8) or bptr[1];
     bptr := bptr + 2;
-    inc(i);
   end;
 
   // Position list
-  DebugLn('initialize position list #', [ht^.ht_PositionNr]);
-  i := 0;
-  while (i < ht^.ht_PositionNr) do 
+  DebugLn('initialize #%d list positions', [ht^.ht_PositionNr]);
+
+  for i := 0 to Pred(ht^.ht_PositionNr) do 
   begin
-    j := 0;
-    while (j < ht^.ht_Channels) do
+    for j := 0 to Pred(ht^.ht_Channels) do
     begin
       ht^.ht_Positions[i].pos_Track[j]     := bptr^;         
-      inc(bptr, 1);
+      bptr := bptr + 1;
       ht^.ht_Positions[i].pos_Transpose[j] := pint8(bptr)^;
-      inc(bptr, 1);
-      inc(j);
+      bptr := bptr + 1;
     end;
-    inc(i);
   end;
 
   // Tracks
-  DebugLn('initialize tracks #', [ht^.ht_TrackNr]);  
-  i := 0;
-  while (i <= ht^.ht_TrackNr) do
+  DebugLn('initialize #%d tracks', [ht^.ht_TrackNr]);  
+
+  for i := 0 to ht^.ht_TrackNr do   // Note: i <= ht^.ht_TrackNr
   begin
     if ( ( ( buf[6] and $80 ) = $80 ) and ( i = 0 ) ) then
     begin
-      j := 0;
-      while (j < ht^.ht_TrackLength) do 
+      for j := 0 to Pred(ht^.ht_TrackLength) do 
       begin
         ht^.ht_Tracks[i][j].stp_Note       := 0;
         ht^.ht_Tracks[i][j].stp_Instrument := 0;
@@ -1240,16 +1235,13 @@ begin
         ht^.ht_Tracks[i][j].stp_FXParam    := 0;
         ht^.ht_Tracks[i][j].stp_FXb        := 0;
         ht^.ht_Tracks[i][j].stp_FXbParam   := 0;
-        inc(j);
       end;
-      inc(i);       // FPC: account for update
       continue;
     end;
-    
-    j := 0;
-    while (j < ht^.ht_TrackLength) do
+
+    for j := 0 to Pred(ht^.ht_TrackLength) do
     begin
-      if( bptr[0] = $3f ) then
+      if ( bptr[0] = $3f ) then
       begin
         ht^.ht_Tracks[i][j].stp_Note       := 0;
         ht^.ht_Tracks[i][j].stp_Instrument := 0;
@@ -1257,11 +1249,10 @@ begin
         ht^.ht_Tracks[i][j].stp_FXParam    := 0;
         ht^.ht_Tracks[i][j].stp_FXb        := 0;
         ht^.ht_Tracks[i][j].stp_FXbParam   := 0;
-        inc(bptr, 1);
-        inc(j);     // FPC: account for update
+        bptr := bptr + 1;
         continue;
       end;
-      
+
       ht^.ht_Tracks[i][j].stp_Note       := bptr[0];
       ht^.ht_Tracks[i][j].stp_Instrument := bptr[1];
       ht^.ht_Tracks[i][j].stp_FX         := bptr[2] shr 4;
@@ -1269,20 +1260,16 @@ begin
       ht^.ht_Tracks[i][j].stp_FXb        := bptr[2] and $f;
       ht^.ht_Tracks[i][j].stp_FXbParam   := bptr[4];
       bptr := bptr + 5;
-      inc(j);
     end;
-
-    inc(i);
   end;
 
 
   // Instruments
-  DebugLn('attempting to initialize instruments');
+  DebugLn('attempting to initialize #%d instruments', [ht^.ht_InstrumentNr]);
 
-  i := 1;
-  while (i <= ht^.ht_InstrumentNr) do
+  for i := 1 to ht^.ht_InstrumentNr do      // Note: i <= ht^.ht_InstrumentNr
   begin
-    if  ( nptr < pchar( buf+buflen ) ) then
+    if ( nptr < pchar( buf+buflen ) ) then
     begin
       strlcopy( ht^.ht_Instruments[i].ins_Name, nptr, 128 );
       nptr := nptr + strlen( nptr )+1;
@@ -1317,14 +1304,12 @@ begin
     ht^.ht_Instruments[i].ins_PList.pls_Speed       := bptr[20];
     ht^.ht_Instruments[i].ins_PList.pls_Length      := bptr[21];
 
-
     ht^.ht_Instruments[i].ins_PList.pls_Entries     := ple;
     ple := ple + bptr[21];
-    
+
     bptr := bptr + 22;
-    
-    j := 0;
-    while (j < ht^.ht_Instruments[i].ins_PList.pls_Length) do
+
+    for j := 0 to Pred(ht^.ht_Instruments[i].ins_PList.pls_Length) do
     begin
       ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FX[0]      := bptr[0] and $f;
       ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FX[1]      := (bptr[1] shr 3) and $f;
@@ -1334,9 +1319,7 @@ begin
       ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FXParam[0] := bptr[3];
       ht^.ht_Instruments[i].ins_PList.pls_Entries[j].ple_FXParam[1] := bptr[4];
       bptr := bptr + 5;
-      inc(j);
     end;
-    inc(i);
   end;
 
   DebugLn('Attempting to initialize subsongs');

@@ -1020,47 +1020,47 @@ begin
   (*
     Pascalized file and memory handling
   *)
-  
+
   // Check if file exist at all.
   If not FileExists( name ) then
-  begin  
-    writeln('Unable to find "', name, '"');
-    exit(nil);
-  end;  
+  begin
+    WriteLn('Unable to find "', name, '"');
+    exit( nil );
+  end;
 
   // Open the file
   fh := FileOpen(name, fmOpenRead);
   if (fh = -1) then
   begin
-    writeln( 'Can''t open file' );
-    exit (nil);
+    WriteLn( 'Can''t open file' );
+    exit( nil );
   end;
-  
+
   // determine size of file/buffer
   FileSeek(fh, 0, fsFromBeginning);         // make sure filepos is zero'ed
   buflen := FileSeek(fh, 0, fsFromEnd);     // seek to end and return its byrnumber
-  writeln('determined buffer size of ', buflen);
+  DebugLn('determined a file-size of %d bytes', [buflen]);
 
   // Allocate memory for buffer.
   buf    := GetMem(buflen);                 // Allocate the memory. Classic would require alignment (AllocVec)
   if (buf = nil) then
-  begin  
+  begin
     FileClose(fh);
-    writeln('Out of memory');
-    exit(nil);
+    WriteLn('Out of memory');
+    exit( nil );
   end;
 
   // Read file into memory buffer
   FileSeek(fh, 0, fsFromBeginning);         // make sure filepos is zero'ed again
   nbytes := FileRead( fh, buf^, buflen);
-  writeln(' read ', nbytes,' bytes');
+  DebugLn(' read %d bytes into memory buffer', [nbytes]);
 
   if ( nbytes <> buflen ) then
   begin
     FreeMem( buf );
     FileClose( fh );
-    writeln( 'Unable to read from file!' );
-    exit ( nil );
+    WriteLn( 'Unable to read from file!' );
+    exit( nil );
   end;
 
   // Finally close the file.

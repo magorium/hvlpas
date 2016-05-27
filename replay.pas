@@ -1244,4 +1244,67 @@ end;
 
 
 
+function hvl_LoadTune(name: pchar; freq: uint32; defstereo: uint32): Phvl_Tune;
+var
+  buf       : Puint8;
+  buflen    : uint32;
+var  // FPC: specifics
+  fh        : Longint; // THandle;
+  nbytes    : longint;
+begin
+  (*
+    Pascalized file and memory handling
+  *)
+
+  // Check if file exist at all.
+  if not FileExists( name ) then
+  begin
+    WriteLn('Unable to find "', name, '"');
+    exit( nil );
+  end;
+
+  // Open the file
+  fh := FileOpen(name, fmOpenRead);
+  if (fh = -1) then
+  begin
+    WriteLn( 'Cannot open file' );
+    exit( nil );
+  end;
+
+  // determine size of file/buffer
+  FileSeek(fh, 0, fsFromBeginning);         // make sure filepos is zero'ed
+  buflen := FileSeek(fh, 0, fsFromEnd);     // seek to end and return its byrnumber
+  DebugLn('determined a file-size of %d bytes', [buflen]);
+
+  // Allocate memory for buffer.
+  buf    := GetMem(buflen);                 // Allocate the memory. Classic would require alignment (AllocVec)
+  if (buf = nil) then
+  begin
+    FileClose(fh);
+    WriteLn('Out of memory');
+    exit( nil );
+  end;
+  DebugLn('allocated memory buffer of %d bytes', [buflen]);
+
+  // Read file into memory buffer
+  FileSeek(fh, 0, fsFromBeginning);         // make sure filepos is zero'ed again
+  nbytes := FileRead( fh, buf^, buflen);
+  DebugLn(' read %d bytes into memory buffer', [nbytes]);
+
+  if ( nbytes <> buflen ) then
+  begin
+    FreeMem( buf );
+    FileClose( fh );
+    WriteLn( 'Unable to read from file!' );
+    exit( nil );
+  end;
+
+  // Finally close the file.
+  FileClose( fh );
+
+  hvl_LoadTune := hvl_reset( buf, buflen, defstereo, freq, true);
+end;
+
+
+
 end.

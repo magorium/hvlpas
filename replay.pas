@@ -1307,4 +1307,12 @@ end;
 
 
 
+procedure hvl_FreeTune(ht: phvl_tune);
+begin
+  if not( ht <> nil ) then exit;
+  FreeMem( ht );       // FPC: native memory handling
+end;
+
+
+
 end.

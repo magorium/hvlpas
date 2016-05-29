@@ -1315,4 +1315,77 @@ end;
 
 
 
+procedure hvl_process_stepfx_1(ht: Phvl_tune; voice: Phvl_voice; FX: int32; FXParam: int32);
+begin
+  case ( FX ) of
+    $0:  // Position Jump HI
+    begin
+      if ( ((FXParam and $0f) > 0) and ((FXParam and $0f) <= 9) )
+      then ht^.ht_PosJump := FXParam and $f;
+    end;
+
+    $5,  // Volume Slide + Tone Portamento
+    $a:  // Volume Slide
+    begin
+      voice^.vc_VolumeSlideDown := FXParam and $0f;
+      voice^.vc_VolumeSlideUp   := FXParam shr 4;
+    end;
+
+    $7:  // Panning
+    begin
+      if ( FXParam > 127 )
+      then FXParam := FXParam - 256;
+      voice^.vc_Pan          := (FXParam+128);
+      voice^.vc_SetPan       := (FXParam+128); // 1.4
+      voice^.vc_PanMultLeft  := panning_left[voice^.vc_Pan];
+      voice^.vc_PanMultRight := panning_right[voice^.vc_Pan];
+    end;
+
+    $b: // Position jump
+    begin
+      ht^.ht_PosJump      := ht^.ht_PosJump*100 + (FXParam and $0f) + (FXParam shr 4)*10;
+      ht^.ht_PatternBreak := 1;
+      if ( ht^.ht_PosJump <= ht^.ht_PosNr )
+      then ht^.ht_SongEndReached := 1;
+    end;
+
+    $d: // Pattern break
+    begin
+      ht^.ht_PosJump      := ht^.ht_PosNr+1;
+      ht^.ht_PosJumpNote  := (FXParam and $0f) + (FXParam shr 4)*10;
+      ht^.ht_PatternBreak := 1;
+      if ( ht^.ht_PosJumpNote >  ht^.ht_TrackLength )
+      then ht^.ht_PosJumpNote := 0;
+    end;
+
+    $e: // Extended commands
+    begin
+      case ( FXParam shr 4 ) of
+        $c: // Note cut
+        begin
+          if ( (FXParam and $0f) < ht^.ht_Tempo ) then
+          begin
+            voice^.vc_NoteCutWait := FXParam and $0f;
+            if ( voice^.vc_NoteCutWait <> 0 ) then
+            begin
+              voice^.vc_NoteCutOn      := 1;
+              voice^.vc_HardCutRelease := 0;
+            end;
+          end;
+        end;
+        // 1.6: 0xd case removed
+      end; // case FXParam shr 4
+    end;
+
+    $f: // Speed
+    begin
+      ht^.ht_Tempo := FXParam;
+      if ( FXParam = 0 )
+      then ht^.ht_SongEndReached := 1;
+    end;
+  end; // case FX
+end;
+
+
+
 end.

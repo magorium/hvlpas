@@ -1354,7 +1354,7 @@ begin
       voice^.vc_VolumeSlideDown := FXParam and $0f;
       voice^.vc_VolumeSlideUp   := FXParam shr 4;
     end;
-    
+
     $7:  // Panning
     begin
       if ( FXParam > 127 )
@@ -1372,7 +1372,7 @@ begin
       if ( ht^.ht_PosJump <= ht^.ht_PosNr )
       then ht^.ht_SongEndReached := 1;
     end;
-    
+
     $d: // Pattern break
     begin
       ht^.ht_PosJump      := ht^.ht_PosNr+1;
@@ -1397,7 +1397,6 @@ begin
             end;
           end;
         end;
-          
         // 1.6: 0xd case removed
       end; // case FXParam shr 4
     end;

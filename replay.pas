@@ -1388,4 +1388,40 @@ end;
 
 
 
+procedure hvl_process_stepfx_2(ht: Phvl_tune; voice: Phvl_voice; FX: int32; FXParam: int32; Note: Pint32);
+var
+  new, diff: int32;
+begin
+  case ( FX ) of
+    $9: // Set squarewave offset
+    begin
+      voice^.vc_SquarePos    := FXParam shr (5 - voice^.vc_WaveLength);
+      voice^.vc_PlantSquare  := 1;
+      voice^.vc_IgnoreSquare := 1;
+    end;
+
+    $5, // Tone portamento + volume slide
+    $3: // Tone portamento
+    begin
+      if ( FXParam <> 0 ) then voice^.vc_PeriodSlideSpeed := FXParam;
+
+      if ( Note^ <> 0 ) then
+      begin
+        new   := period_tab[Note^];
+        diff  := period_tab[voice^.vc_TrackPeriod];
+        diff  := diff - new;
+        new   := diff + voice^.vc_PeriodSlidePeriod;
+
+        if ( new <> 0 )
+        then voice^.vc_PeriodSlideLimit := -diff;
+      end;
+      voice^.vc_PeriodSlideOn        := 1;
+      voice^.vc_PeriodSlideWithLimit := 1;
+      Note^ := 0;
+    end;
+  end; // case FX
+end;
+
+
+
 end.

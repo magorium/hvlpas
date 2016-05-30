@@ -1428,21 +1428,21 @@ begin
     $3: // Tone portamento
     begin
       if ( FXParam <> 0 ) then voice^.vc_PeriodSlideSpeed := FXParam;
-      
+
       if ( Note^ <> 0 ) then
       begin
         new   := period_tab[Note^];
         diff  := period_tab[voice^.vc_TrackPeriod];
         diff  := diff - new;
         new   := diff + voice^.vc_PeriodSlidePeriod;
-        
-        if (new <> 0)
+
+        if ( new <> 0 )
         then voice^.vc_PeriodSlideLimit := -diff;
       end;
       voice^.vc_PeriodSlideOn        := 1;
       voice^.vc_PeriodSlideWithLimit := 1;
       Note^ := 0;
-    end;     
+    end;
   end; // case FX
 end;
 

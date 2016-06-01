@@ -1576,15 +1576,15 @@ var
   SquareLower, SquareUpper, d6, d3, d4: int16;
 var
   t: int16;
-begin  
+begin
   if ( voice^.vc_TrackOn = 0 )
   then exit;
-  
-  voice^.vc_VolumeSlideUp   := 0; 
+
+  voice^.vc_VolumeSlideUp   := 0;
   voice^.vc_VolumeSlideDown := 0;
-  
+
   Step := @ht^.ht_Tracks[ht^.ht_Positions[ht^.ht_PosNr].pos_Track[voice^.vc_VoiceNum]] [ht^.ht_NoteNr];
-  
+
   Note    := Step^.stp_Note;
   Instr   := Step^.stp_Instrument;
 
@@ -1593,7 +1593,7 @@ begin
   donenotedel := 0;
 
   // Do notedelay here
-  if( ((Step^.stp_FX and $f) = $e) and ((Step^.stp_FXParam and $f0) = $d0) ) then
+  if ( ((Step^.stp_FX and $f) = $e) and ((Step^.stp_FXParam and $f0) = $d0) ) then
   begin
     if ( voice^.vc_NoteDelayOn <> 0 ) then
     begin
@@ -1605,7 +1605,7 @@ begin
       if ( (Step^.stp_FXParam and $0f) < ht^.ht_Tempo ) then
       begin
         voice^.vc_NoteDelayWait := Step^.stp_FXParam and $0f;
-        if( voice^.vc_NoteDelayWait <> 0) then
+        if ( voice^.vc_NoteDelayWait <> 0 ) then
         begin
           voice^.vc_NoteDelayOn := 1;
           exit;
@@ -1638,9 +1638,9 @@ begin
 
   if ( Note <> 0 ) then voice^.vc_OverrideTranspose := 1000; // 1.5
 
-  hvl_process_stepfx_1( ht, voice, Step^.stp_FX  and $f, Step^.stp_FXParam  );  
+  hvl_process_stepfx_1( ht, voice, Step^.stp_FX  and $f, Step^.stp_FXParam  );
   hvl_process_stepfx_1( ht, voice, Step^.stp_FXb and $f, Step^.stp_FXbParam );
-  
+
   if ( ( Instr <> 0 ) and ( Instr <= ht^.ht_InstrumentNr ) ) then
   begin
 
@@ -1678,35 +1678,35 @@ begin
 
     voice^.vc_IgnoreSquare := 0; voice^.vc_SquareSlidingIn := 0;
     voice^.vc_SquareWait   := 0; voice^.vc_SquareOn        := 0;
-    
+
     SquareLower := Ins^.ins_SquareLowerLimit shr (5 - voice^.vc_WaveLength);
     SquareUpper := Ins^.ins_SquareUpperLimit shr (5 - voice^.vc_WaveLength);
 
-    if( SquareUpper < SquareLower ) then
+    if ( SquareUpper < SquareLower ) then
     begin
       t           := SquareUpper;
       SquareUpper := SquareLower;
       SquareLower := t;
     end;
-    
+
     voice^.vc_SquareUpperLimit := SquareUpper;
     voice^.vc_SquareLowerLimit := SquareLower;
-    
+
     voice^.vc_IgnoreFilter    := 0; voice^.vc_FilterWait := 0; voice^.vc_FilterOn := 0;
     voice^.vc_FilterSlidingIn := 0;
 
     d6 := Ins^.ins_FilterSpeed;
     d3 := Ins^.ins_FilterLowerLimit;
     d4 := Ins^.ins_FilterUpperLimit;
-    
-    if ( d3 and $80 <> 0) then d6 := d6 or $20;
-    if ( d4 and $80 <> 0) then d6 := d6 or $40;
-    
+
+    if ( (d3 and $80) <> 0 ) then d6 := d6 or $20;
+    if ( (d4 and $80) <> 0 ) then d6 := d6 or $40;
+
     voice^.vc_FilterSpeed := d6;
     d3 := d3 and (not $80);
     d3 := d4 and (not $80);
-    
-    if( d3 > d4 ) then
+
+    if ( d3 > d4 ) then
     begin
       t  := d3;
       d3 := d4;
@@ -1729,7 +1729,7 @@ begin
 
   voice^.vc_PeriodSlideOn := 0;
 
-  hvl_process_stepfx_2( ht, voice, Step^.stp_FX  and $f, Step^.stp_FXParam,  @Note );  
+  hvl_process_stepfx_2( ht, voice, Step^.stp_FX  and $f, Step^.stp_FXParam,  @Note );
   hvl_process_stepfx_2( ht, voice, Step^.stp_FXb and $f, Step^.stp_FXbParam, @Note );
 
   if (Note <> 0) then

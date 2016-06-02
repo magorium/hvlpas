@@ -1720,4 +1720,186 @@ end;
 
 
 
+procedure hvl_plist_command_parse(ht: Phvl_tune; voice: Phvl_voice; FX: int32; FXParam: int32);
+label
+  CaseBreak7, CaseBreak8, CaseBreak12;
+begin
+  case ( FX ) of
+    0:
+    begin
+      if ( (FXParam > 0) and  (FXParam < $40) ) then
+      begin
+        if (voice^.vc_IgnoreFilter <> 0) then
+        begin
+          voice^.vc_FilterPos    := voice^.vc_IgnoreFilter;
+          voice^.vc_IgnoreFilter := 0;
+        end
+        else
+        begin
+          voice^.vc_FilterPos    := FXParam;
+        end;
+        voice^.vc_NewWaveform := 1;
+      end;
+    end;
+
+    1:
+    begin
+      voice^.vc_PeriodPerfSlideSpeed := FXParam;
+      voice^.vc_PeriodPerfSlideOn    := 1;
+    end;
+
+    2:
+    begin
+      voice^.vc_PeriodPerfSlideSpeed := -FXParam;
+      voice^.vc_PeriodPerfSlideOn    := 1;
+    end;
+
+    3:
+    begin
+      if ( voice^.vc_IgnoreSquare = 0 )
+      then voice^.vc_SquarePos    := FXParam shr (5-voice^.vc_WaveLength)
+      else voice^.vc_IgnoreSquare := 0;
+    end;
+
+    4:
+    begin
+      if ( FXParam = 0 ) then
+      begin
+        voice^.vc_SquareOn   := voice^.vc_SquareOn xor 1;   // FPC: modification
+        voice^.vc_SquareInit := (voice^.vc_SquareOn);
+        voice^.vc_SquareSign := 1;
+      end
+      else
+      begin
+        if ( FXParam and $0f <> 0 ) then
+        begin
+          voice^.vc_SquareOn   := voice^.vc_SquareOn xor 1; // FPC: modification
+          voice^.vc_SquareInit := (voice^.vc_SquareOn);
+          voice^.vc_SquareSign := 1;
+          if (( FXParam and $0f ) = $0f )
+          then voice^.vc_SquareSign := -1;
+        end;
+
+        if ( FXParam and $f0 <> 0 ) then
+        begin
+          voice^.vc_FilterOn   := voice^.vc_FilterOn xor 1; // FPC: modification
+          voice^.vc_FilterInit := (voice^.vc_FilterOn);
+          voice^.vc_FilterSign := 1;
+          if (( FXParam and $f0 ) = $f0 )
+          then voice^.vc_FilterSign := -1;
+        end;
+      end;
+    end;
+
+    5:
+    begin
+      voice^.vc_PerfCurrent := FXParam;
+    end;
+
+    7:
+    begin
+      // Ring modulate with triangle
+      if ( (FXParam >= 1) and (FXParam <= $3C) ) then
+      begin
+        voice^.vc_RingBasePeriod  := FXParam;
+        voice^.vc_RingFixedPeriod := 1;
+      end
+      else 
+      if ( (FXParam >= $81) and (FXParam <= $BC) ) then
+      begin
+        voice^.vc_RingBasePeriod  := FXParam-$80;
+        voice^.vc_RingFixedPeriod := 0;
+      end
+      else
+      begin
+        voice^.vc_RingBasePeriod  := 0;
+        voice^.vc_RingFixedPeriod := 0;
+        voice^.vc_RingNewWaveform := 0;
+        voice^.vc_RingAudioSource := nil; // turn it off
+        voice^.vc_RingMixSource   := nil;
+        Goto CaseBreak7;
+      end;
+      voice^.vc_RingWaveform    := 0;
+      voice^.vc_RingNewWaveform := 1;
+      voice^.vc_RingPlantPeriod := 1;
+
+      CaseBreak7:
+    end;
+
+    8:  // Ring modulate with sawtooth
+    begin
+      if ( (FXParam >= 1) and (FXParam <= $3C) ) then
+      begin
+        voice^.vc_RingBasePeriod  := FXParam;
+        voice^.vc_RingFixedPeriod := 1;
+      end
+      else 
+      if ( (FXParam >= $81) and (FXParam <= $BC) ) then
+      begin
+        voice^.vc_RingBasePeriod  := FXParam - $80;
+        voice^.vc_RingFixedPeriod := 0;
+      end
+      else
+      begin
+        voice^.vc_RingBasePeriod  := 0;
+        voice^.vc_RingFixedPeriod := 0;
+        voice^.vc_RingNewWaveform := 0;
+        voice^.vc_RingAudioSource := nil;
+        voice^.vc_RingMixSource   := nil;
+        Goto CaseBreak8;
+      end;
+
+      voice^.vc_RingWaveform    := 1;
+      voice^.vc_RingNewWaveform := 1;
+      voice^.vc_RingPlantPeriod := 1;
+
+      CaseBreak8:
+    end;
+
+    //* New in HivelyTracker 1.4 */    
+    9:
+    begin
+      if ( FXParam > 127 )
+      then FXParam := FXParam - 256;
+      voice^.vc_Pan          := (FXParam + 128);
+      voice^.vc_PanMultLeft  := panning_left[voice^.vc_Pan];
+      voice^.vc_PanMultRight := panning_right[voice^.vc_Pan];
+    end;
+
+    12:
+    begin
+      if ( FXParam <= $40 ) then
+      begin
+        voice^.vc_NoteMaxVolume := FXParam;
+        goto CaseBreak12;
+      end;
+
+      FXParam := FXParam - $50;                        // FPC: modification
+      if ( (FXParam) < 0 ) then goto CaseBreak12;
+
+      if ( FXParam <= $40 ) then
+      begin
+        voice^.vc_PerfSubVolume := FXParam;
+        goto CaseBreak12;
+      end;
+
+      FXParam := FXParam - $a0-$50;                     // FPC: modification
+      if ( (FXParam) < 0 ) then goto CaseBreak12;
+
+      if ( FXParam <= $40 )
+      then voice^.vc_TrackMasterVolume := FXParam;
+
+      CaseBreak12:
+    end;
+
+    15:
+    begin
+      voice^.vc_PerfSpeed := FXParam; voice^.vc_PerfWait := FXParam;
+    end;
+
+  end; // case FX
+end;
+
+
+
 end.

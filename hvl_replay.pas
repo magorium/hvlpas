@@ -1751,7 +1751,7 @@ begin
   case ( FX ) of
     0:
     begin
-      if (( FXParam > 0 ) and ( FXParam < $40 )) then
+      if ( (FXParam > 0) and (FXParam < $40) ) then
       begin
         if (voice^.vc_IgnoreFilter <> 0) then
         begin
@@ -1795,18 +1795,18 @@ begin
       end
       else
       begin
-        if ( FXParam and $0f <> 0) then
+        if ( FXParam and $0f <> 0 ) then
         begin
-          voice^.vc_SquareOn := voice^.vc_SquareOn xor 1;   // FPC: modification
+          voice^.vc_SquareOn   := voice^.vc_SquareOn xor 1; // FPC: modification
           voice^.vc_SquareInit := (voice^.vc_SquareOn);
           voice^.vc_SquareSign := 1;
           if (( FXParam and $0f ) = $0f )
           then voice^.vc_SquareSign := -1;
         end;
-        
-        if ( FXParam and $f0 <> 0) then
+
+        if ( FXParam and $f0 <> 0 ) then
         begin
-          voice^.vc_FilterOn := voice^.vc_FilterOn xor 1;   // FPC: modification
+          voice^.vc_FilterOn   := voice^.vc_FilterOn xor 1; // FPC: modification
           voice^.vc_FilterInit := (voice^.vc_FilterOn);
           voice^.vc_FilterSign := 1;
           if (( FXParam and $f0 ) = $f0 )
@@ -1823,13 +1823,13 @@ begin
     7:
     begin
       // Ring modulate with triangle
-      if (( FXParam >= 1 ) and ( FXParam <= $3C )) then
+      if ( (FXParam >= 1) and (FXParam <= $3C) ) then
       begin
         voice^.vc_RingBasePeriod  := FXParam;
         voice^.vc_RingFixedPeriod := 1;
       end
-      else 
-      if (( FXParam >= $81 ) and ( FXParam <= $BC )) then
+      else
+      if ( (FXParam >= $81) and (FXParam <= $BC) ) then
       begin
         voice^.vc_RingBasePeriod  := FXParam-$80;
         voice^.vc_RingFixedPeriod := 0;
@@ -1842,23 +1842,23 @@ begin
         voice^.vc_RingAudioSource := nil; // turn it off
         voice^.vc_RingMixSource   := nil;
         Goto CaseBreak7;
-      end;    
+      end;
       voice^.vc_RingWaveform    := 0;
       voice^.vc_RingNewWaveform := 1;
       voice^.vc_RingPlantPeriod := 1;
-      
+
       CaseBreak7:
     end;
 
     8:  // Ring modulate with sawtooth
     begin
-      if (( FXParam >= 1 ) and ( FXParam <= $3C )) then
+      if ( (FXParam >= 1) and (FXParam <= $3C) ) then
       begin
         voice^.vc_RingBasePeriod  := FXParam;
         voice^.vc_RingFixedPeriod := 1;
       end
-      else 
-      if (( FXParam >= $81 ) and ( FXParam <= $BC )) then
+      else
+      if ( (FXParam >= $81) and (FXParam <= $BC) ) then
       begin
         voice^.vc_RingBasePeriod  := FXParam - $80;
         voice^.vc_RingFixedPeriod := 0;
@@ -1876,12 +1876,12 @@ begin
       voice^.vc_RingWaveform    := 1;
       voice^.vc_RingNewWaveform := 1;
       voice^.vc_RingPlantPeriod := 1;
-      
+
       CaseBreak8:
     end;
 
     //* New in HivelyTracker 1.4 */    
-    9:    
+    9:
     begin
       if ( FXParam > 127 )
       then FXParam := FXParam - 256;
@@ -1909,11 +1909,11 @@ begin
 
       FXParam := FXParam - $a0-$50;                     // FPC: modification
       if ( (FXParam) < 0 ) then goto CaseBreak12;
-      
+
       if ( FXParam <= $40 )
       then voice^.vc_TrackMasterVolume := FXParam;
 
-      CaseBreak12:      
+      CaseBreak12:
     end;
 
     15:

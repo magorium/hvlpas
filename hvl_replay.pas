@@ -1928,19 +1928,19 @@ end;
 
 procedure hvl_process_frame( ht: Phvl_tune; voice: Phvl_voice );
 const
-  OffSets : packed array[0..5] of uint8 = 
+  OffSets : packed array[0..5] of uint8 =
   (
     $00, $04, $04+$08, $04+$08+$10, $04+$08+$10+$20, $04+$08+$10+$20+$40
   );
 var
   nextinst          : int32;
   d0, d1, d2, d3    : int32;
-  i, FMax           : uint32;
+  i, FMax           : int32;    // FPC: prefer integer
   cur, delta, X     : int32;
-  SquarePtr, 
-  rasrc, 
+  SquarePtr,
+  rasrc,
   AudioSource       : pint8;
-begin  
+begin
   if ( voice^.vc_TrackOn = 0 )
   then exit;
 
@@ -1948,7 +1948,7 @@ begin
   begin
     if ( voice^.vc_NoteDelayWait <= 0 )
     then hvl_process_step( ht, voice )
-    else dec(voice^.vc_NoteDelayWait, 1);
+    else voice^.vc_NoteDelayWait := voice^.vc_NoteDelayWait - 1;
   end;
 
   if ( voice^.vc_HardCut <> 0 ) then
@@ -1956,14 +1956,14 @@ begin
     if ( (ht^.ht_NoteNr + 1) < ht^.ht_TrackLength )
     then nextinst := ht^.ht_Tracks[voice^.vc_Track][ht^.ht_NoteNr+1].stp_Instrument
     else nextinst := ht^.ht_Tracks[voice^.vc_NextTrack][0].stp_Instrument;
-    
+
     if ( nextinst <> 0 ) then
     begin
       d1 := ht^.ht_Tempo - voice^.vc_HardCut;
-      
+
       if ( d1 < 0 ) then d1 := 0;
-    
-      if not( voice^.vc_NoteCutOn <> 0) then
+
+      if not( voice^.vc_NoteCutOn <> 0 ) then
       begin
         voice^.vc_NoteCutOn       := 1;
         voice^.vc_NoteCutWait     := d1;
@@ -1976,12 +1976,12 @@ begin
     end;
   end;
 
-  if ( voice^.vc_NoteCutOn <> 0) then
+  if ( voice^.vc_NoteCutOn <> 0 ) then
   begin
     if ( voice^.vc_NoteCutWait <= 0 ) then
     begin
       voice^.vc_NoteCutOn := 0;
-        
+
       if ( voice^.vc_HardCutRelease <> 0 ) then
       begin
         voice^.vc_ADSR.rVolume := -(voice^.vc_ADSRVolume - (voice^.vc_Instrument^.ins_Envelope.rVolume shl 8)) div voice^.vc_HardCutReleaseF;
@@ -1992,10 +1992,10 @@ begin
       begin
         voice^.vc_NoteMaxVolume := 0;
       end;
-    end  
+    end
     else
     begin
-      dec(voice^.vc_NoteCutWait, 1);
+      voice^.vc_NoteCutWait := voice^.vc_NoteCutWait - 1;
     end
   end;
 
@@ -2003,31 +2003,31 @@ begin
   if ( voice^.vc_ADSR.aFrames <> 0 ) then
   begin
     voice^.vc_ADSRVolume := voice^.vc_ADSRVolume + voice^.vc_ADSR.aVolume;
-    
-    dec(voice^.vc_ADSR.aFrames, 1);
+
+    dec(voice^.vc_ADSR.aFrames, 1);     // FPC: modification
     if ( voice^.vc_ADSR.aFrames <= 0 )
     then voice^.vc_ADSRVolume := voice^.vc_Instrument^.ins_Envelope.aVolume shl 8;
   end
-  else 
+  else
   if ( voice^.vc_ADSR.dFrames <> 0 ) then
   begin
     voice^.vc_ADSRVolume := voice^.vc_ADSRVolume + voice^.vc_ADSR.dVolume;
 
-    dec(voice^.vc_ADSR.dFrames, 1);
+    dec(voice^.vc_ADSR.dFrames, 1);     // FPC: modification
     if ( voice^.vc_ADSR.dFrames <= 0 )
-    then voice^.vc_ADSRVolume := voice^.vc_Instrument^.ins_Envelope.dVolume shl 8;    
+    then voice^.vc_ADSRVolume := voice^.vc_Instrument^.ins_Envelope.dVolume shl 8;
   end
   else 
   if ( voice^.vc_ADSR.sFrames <> 0 ) then
   begin
     voice^.vc_ADSR.sFrames := voice^.vc_ADSR.sFrames - 1;
-  end 
-  else 
+  end
+  else
   if ( voice^.vc_ADSR.rFrames <> 0 ) then
   begin
     voice^.vc_ADSRVolume := voice^.vc_ADSRVolume + voice^.vc_ADSR.rVolume;
 
-    dec(voice^.vc_ADSR.rFrames, 1);
+    dec(voice^.vc_ADSR.rFrames, 1);     // FPC: modification
     if ( voice^.vc_ADSR.rFrames <= 0 )
     then voice^.vc_ADSRVolume := voice^.vc_Instrument^.ins_Envelope.rVolume shl 8;
   end;
@@ -2048,18 +2048,18 @@ begin
     begin
       d0 := voice^.vc_PeriodSlidePeriod - voice^.vc_PeriodSlideLimit;
       d2 := voice^.vc_PeriodSlideSpeed;
-      
+
       if ( d0 > 0 )
       then d2 := -d2;
-      
-      if ( d0 <> 0) then
+
+      if ( d0 <> 0 ) then
       begin
         d3 := (d0 + d2) xor d0;
-        
+
         if ( d3 >= 0 )
         then d0 := voice^.vc_PeriodSlidePeriod + d2
         else d0 := voice^.vc_PeriodSlideLimit;
-        
+
         voice^.vc_PeriodSlidePeriod := d0;
         voice^.vc_PlantPeriod := 1;
       end
@@ -2076,7 +2076,7 @@ begin
   begin
     if ( voice^.vc_VibratoDelay <= 0 ) then
     begin
-      voice^.vc_VibratoPeriod := (vib_tab[voice^.vc_VibratoCurrent] * voice^.vc_VibratoDepth) shr 7;
+      voice^.vc_VibratoPeriod := uint16((vib_tab[voice^.vc_VibratoCurrent] * voice^.vc_VibratoDepth) shr 7);    // FPC: range checking
       voice^.vc_PlantPeriod := 1;
       voice^.vc_VibratoCurrent := (voice^.vc_VibratoCurrent + voice^.vc_VibratoSpeed) and $3f;
     end
@@ -2091,27 +2091,27 @@ begin
   begin
     if ( (voice^.vc_Instrument <> nil) and (voice^.vc_PerfCurrent < voice^.vc_Instrument^.ins_PList.pls_Length) ) then
     begin
-      dec(voice^.vc_PerfWait, 1);                   // FPC modification
+      dec(voice^.vc_PerfWait, 1);                   // FPC: modification
       if ( voice^.vc_PerfWait <= 0 ) then
       begin
         cur := voice^.vc_PerfCurrent;
-        inc(voice^.vc_PerfCurrent, 1);              // FPC modification
-        
+        inc(voice^.vc_PerfCurrent, 1);              // FPC: modification
+
         voice^.vc_PerfWait := voice^.vc_PerfSpeed;
-        
+
         if ( voice^.vc_PerfList^.pls_Entries[cur].ple_Waveform <> 0 ) then
         begin
           voice^.vc_Waveform             := voice^.vc_PerfList^.pls_Entries[cur].ple_Waveform-1;
           voice^.vc_NewWaveform          := 1;
           voice^.vc_PeriodPerfSlideSpeed := 0; voice^.vc_PeriodPerfSlidePeriod := 0;
         end;
-        
+
         // Holdwave
         voice^.vc_PeriodPerfSlideOn := 0;
-        
+
         for i := 0 to Pred(2) 
         do hvl_plist_command_parse( ht, voice, voice^.vc_PerfList^.pls_Entries[cur].ple_FX[i] and $ff, voice^.vc_PerfList^.pls_Entries[cur].ple_FXParam[i] and $ff );
-        
+
         // GetNote
         if ( voice^.vc_PerfList^.pls_Entries[cur].ple_Note <> 0 ) then
         begin
@@ -2120,7 +2120,7 @@ begin
           voice^.vc_FixedNote   := voice^.vc_PerfList^.pls_Entries[cur].ple_Fixed;
         end;
       end;
-    end 
+    end
     else
     begin
       if ( voice^.vc_PerfWait <> 0 )
@@ -2133,24 +2133,24 @@ begin
   if ( voice^.vc_PeriodPerfSlideOn <> 0 ) then
   begin
     voice^.vc_PeriodPerfSlidePeriod := voice^.vc_PeriodPerfSlidePeriod - voice^.vc_PeriodPerfSlideSpeed;
-    
-    if ( voice^.vc_PeriodPerfSlidePeriod <> 0)
+
+    if ( voice^.vc_PeriodPerfSlidePeriod <> 0 )
     then voice^.vc_PlantPeriod := 1;
   end;
 
-  if ( voice^.vc_Waveform = 3-1) and ( voice^.vc_SquareOn <> 0) then
+  if ( (voice^.vc_Waveform = (3-1)) and (voice^.vc_SquareOn <> 0) ) then
   begin
-    dec(voice^.vc_SquareWait, 1);
+    dec(voice^.vc_SquareWait, 1);           // FPC: modification
     if ( voice^.vc_SquareWait <= 0 ) then
     begin
       d1 := voice^.vc_SquareLowerLimit;
       d2 := voice^.vc_SquareUpperLimit;
       d3 := voice^.vc_SquarePos;
-      
+
       if ( voice^.vc_SquareInit <> 0 ) then
       begin
         voice^.vc_SquareInit := 0;
-        
+
         if ( d3 <= d1 ) then
         begin
           voice^.vc_SquareSlidingIn := 1;
@@ -2163,15 +2163,15 @@ begin
           voice^.vc_SquareSign      := -1;
         end;
       end;
-      
+
       // NoSquareInit
-      if ( ( d1 = d3 ) or ( d2 = d3 ) ) then
+      if ( (d1 = d3) or (d2 = d3) ) then
       begin
         if ( voice^.vc_SquareSlidingIn <> 0 )
         then voice^.vc_SquareSlidingIn := 0
         else voice^.vc_SquareSign := -voice^.vc_SquareSign;
       end;
-      
+
       d3 := d3 + voice^.vc_SquareSign;
       voice^.vc_SquarePos   := d3;
       voice^.vc_PlantSquare := 1;
@@ -2180,15 +2180,15 @@ begin
   end;
 
 
-  if ( voice^.vc_FilterOn <> 0 ) then        // FPC modification !!!
+  if ( voice^.vc_FilterOn <> 0 ) then        // FPC: modification !!!
   begin
-    dec(voice^.vc_FilterWait, 1);  
+    dec(voice^.vc_FilterWait, 1);
     if ( voice^.vc_FilterWait <= 0 ) then
-    begin    
+    begin
       d1 := voice^.vc_FilterLowerLimit;
       d2 := voice^.vc_FilterUpperLimit;
       d3 := voice^.vc_FilterPos;
-    
+
       if ( voice^.vc_FilterInit <> 0 ) then
       begin
         voice^.vc_FilterInit := 0;
@@ -2197,7 +2197,7 @@ begin
           voice^.vc_FilterSlidingIn := 1;
           voice^.vc_FilterSign      := 1;
         end
-        else 
+        else
         if ( d3 >= d2 ) then
         begin
           voice^.vc_FilterSlidingIn := 1;
@@ -2207,66 +2207,66 @@ begin
 
       // NoFilterInit
       if ( voice^.vc_FilterSpeed < 3 )
-      then FMax :=  (5-voice^.vc_FilterSpeed) 
+      then FMax :=  (5-voice^.vc_FilterSpeed)
       else FMax := 1;
 
       for i := 0 to Pred(FMax) do 
       begin
-        if ( ( d1 = d3 ) or ( d2 = d3 ) ) then
+        if ( (d1 = d3) or (d2 = d3) ) then
         begin
-          if ( voice^.vc_FilterSlidingIn <> 0)
+          if ( voice^.vc_FilterSlidingIn <> 0 )
           then voice^.vc_FilterSlidingIn := 0
           else voice^.vc_FilterSign := -voice^.vc_FilterSign;
         end;
         d3 := d3 + voice^.vc_FilterSign;
       end;
-    
+
       if ( d3 < 1 )  then d3 := 1;
       if ( d3 > 63 ) then d3 := 63;
       voice^.vc_FilterPos   := d3;
       voice^.vc_NewWaveform := 1;
       voice^.vc_FilterWait  := voice^.vc_FilterSpeed - 3;
-    
+
       if ( voice^.vc_FilterWait < 1 )
       then voice^.vc_FilterWait := 1;
     end;
   end;
 
 
-  if ( (voice^.vc_Waveform = 3-1) or (voice^.vc_PlantSquare <> 0) ) then
+  if ( (voice^.vc_Waveform = (3-1)) or (voice^.vc_PlantSquare <> 0) ) then
   begin
     // CalcSquare
     SquarePtr := @waves[WO_SQUARES+(voice^.vc_FilterPos-$20)*($fc+$fc+$80*$1f+$80+$280*3)];
     X := voice^.vc_SquarePos shl (5 - voice^.vc_WaveLength);
-    
+
     if ( X > $20 ) then
     begin
       X := $40 - X;
       voice^.vc_SquareReverse := 1;
     end;
-    
+
     // OkDownSquare
     if ( X > 0 )
     then SquarePtr := SquarePtr + ((X-1) shl 7);
-    
+
     Delta := 32 shr voice^.vc_WaveLength;
-    ht^.ht_WaveformTab[2] := @voice^.vc_SquareTempBuffer[0];    // FPC change
-    
+    ht^.ht_WaveformTab[2] := @voice^.vc_SquareTempBuffer[0];    // FPC: Modification
+
     for i := 0 to Pred((1 shl voice^.vc_WaveLength)*4) do
     begin
       voice^.vc_SquareTempBuffer[i] := SquarePtr^;
       SquarePtr := SquarePtr + Delta;
     end;
-    
+
     voice^.vc_NewWaveform := 1;
     voice^.vc_Waveform    := 3-1;
     voice^.vc_PlantSquare := 0;
   end;
 
 
-  if ( voice^.vc_Waveform = 4-1 )
+  if ( voice^.vc_Waveform = (4-1) )
   then voice^.vc_NewWaveform := 1;
-  
+
   if ( voice^.vc_RingNewWaveform <> 0 ) then
   begin
 
@@ -2274,30 +2274,30 @@ begin
 
     rasrc := ht^.ht_WaveformTab[voice^.vc_RingWaveform];
     rasrc := rasrc + Offsets[voice^.vc_WaveLength];
-    
+
     voice^.vc_RingAudioSource := rasrc;
-  end;   
+  end;
 
 
   if ( voice^.vc_NewWaveform <> 0 ) then
   begin
     AudioSource := ht^.ht_WaveformTab[voice^.vc_Waveform];
 
-    if ( voice^.vc_Waveform <> 3-1 )
+    if ( voice^.vc_Waveform <> (3-1) )
     then AudioSource := AudioSource + (voice^.vc_FilterPos-$20)*($fc+$fc+$80*$1f+$80+$280*3);
 
-    if ( voice^.vc_Waveform < 3-1) then
+    if ( voice^.vc_Waveform < (3-1) ) then
     begin
       // GetWLWaveformlor2
       AudioSource := AudioSource + Offsets[voice^.vc_WaveLength];
     end;
 
-    if ( voice^.vc_Waveform = 4-1 ) then
+    if ( voice^.vc_Waveform = (4-1) ) then
     begin
       // AddRandomMoving
       AudioSource := AudioSource + ( voice^.vc_WNRandom and (2*$280-1) ) and (not 1);  // FPC note: check not(1)
       // GoOnRandom
-      voice^.vc_WNRandom := voice^.vc_WNRandom + 2239384;
+      voice^.vc_WNRandom := int32( int64(voice^.vc_WNRandom) + int64(2239384) ) ;    // FPC: overflow
       voice^.vc_WNRandom := ((((voice^.vc_WNRandom shr 8) or (voice^.vc_WNRandom shl 24)) + 782323) xor 75) - 6735;
     end;
 
@@ -2309,26 +2309,26 @@ begin
   if ( voice^.vc_RingAudioSource <> nil ) then
   begin
     voice^.vc_RingAudioPeriod := voice^.vc_RingBasePeriod;
-  
+
     if ( not(voice^.vc_RingFixedPeriod <> 0) ) then
     begin
       if ( voice^.vc_OverrideTranspose <> 1000 )  // 1.5
-      then voice^.vc_RingAudioPeriod := voice^.vc_RingAudioPeriod + voice^.vc_OverrideTranspose + voice^.vc_TrackPeriod - 1
-      else voice^.vc_RingAudioPeriod := voice^.vc_RingAudioPeriod + voice^.vc_Transpose         + voice^.vc_TrackPeriod - 1;
+      then voice^.vc_RingAudioPeriod := voice^.vc_RingAudioPeriod + ( voice^.vc_OverrideTranspose + voice^.vc_TrackPeriod - 1 )
+      else voice^.vc_RingAudioPeriod := voice^.vc_RingAudioPeriod + ( voice^.vc_Transpose         + voice^.vc_TrackPeriod - 1 );
     end;
-  
-    if ( voice^.vc_RingAudioPeriod > 5*12 )
+
+    if ( voice^.vc_RingAudioPeriod > (5*12) )
     then voice^.vc_RingAudioPeriod := 5*12;
-  
+
     if ( voice^.vc_RingAudioPeriod < 0 )
     then voice^.vc_RingAudioPeriod := 0;
-  
+
     voice^.vc_RingAudioPeriod := period_tab[voice^.vc_RingAudioPeriod];
 
     if ( not(voice^.vc_RingFixedPeriod <> 0) )
     then voice^.vc_RingAudioPeriod := voice^.vc_RingAudioPeriod + voice^.vc_PeriodSlidePeriod;
 
-    voice^.vc_RingAudioPeriod := voice^.vc_RingAudioPeriod + voice^.vc_PeriodPerfSlidePeriod + voice^.vc_VibratoPeriod;
+    voice^.vc_RingAudioPeriod := voice^.vc_RingAudioPeriod + ( voice^.vc_PeriodPerfSlidePeriod + voice^.vc_VibratoPeriod );
 
     if ( voice^.vc_RingAudioPeriod > $0d60 )
     then voice^.vc_RingAudioPeriod := $0d60;
@@ -2340,33 +2340,33 @@ begin
 
   // Normal period calculation
   voice^.vc_AudioPeriod := voice^.vc_InstrPeriod;
-  
+
   if ( not (voice^.vc_FixedNote <> 0) ) then
   begin
     if ( voice^.vc_OverrideTranspose <> 1000 ) // 1.5
-    then voice^.vc_AudioPeriod := voice^.vc_AudioPeriod + voice^.vc_OverrideTranspose + voice^.vc_TrackPeriod - 1
-    else voice^.vc_AudioPeriod := voice^.vc_AudioPeriod + voice^.vc_Transpose         + voice^.vc_TrackPeriod - 1;
+    then voice^.vc_AudioPeriod := voice^.vc_AudioPeriod + ( voice^.vc_OverrideTranspose + voice^.vc_TrackPeriod - 1 )
+    else voice^.vc_AudioPeriod := voice^.vc_AudioPeriod + ( voice^.vc_Transpose         + voice^.vc_TrackPeriod - 1 );
   end;
 
-  if ( voice^.vc_AudioPeriod > 5*12 )
+  if ( voice^.vc_AudioPeriod > (5*12) )
   then voice^.vc_AudioPeriod := 5*12;
-  
+
   if ( voice^.vc_AudioPeriod < 0 )
   then voice^.vc_AudioPeriod := 0;
-  
+
   voice^.vc_AudioPeriod := period_tab[voice^.vc_AudioPeriod];
-  
+
   if ( not(voice^.vc_FixedNote <> 0) )
   then voice^.vc_AudioPeriod := voice^.vc_AudioPeriod + voice^.vc_PeriodSlidePeriod;
 
-  voice^.vc_AudioPeriod := voice^.vc_AudioPeriod + voice^.vc_PeriodPerfSlidePeriod + voice^.vc_VibratoPeriod;
+  voice^.vc_AudioPeriod := int16(voice^.vc_AudioPeriod + voice^.vc_PeriodPerfSlidePeriod + voice^.vc_VibratoPeriod);    // FPC: rangeCheck
 
   if ( voice^.vc_AudioPeriod > $0d60 )
   then voice^.vc_AudioPeriod := $0d60;
 
   if ( voice^.vc_AudioPeriod < $0071 )
   then voice^.vc_AudioPeriod := $0071;
-  
+
   voice^.vc_AudioVolume := (((((((voice^.vc_ADSRVolume shr 8) * voice^.vc_NoteMaxVolume) shr 6) * voice^.vc_PerfSubVolume) shr 6) * voice^.vc_TrackMasterVolume) shr 6);
 end;
 

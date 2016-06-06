@@ -2374,10 +2374,10 @@ end;
 
 procedure hvl_set_audio( voice : Phvl_voice; freqf: float64 );
 var
-  freq2     : float64;  
+  freq2     : float64;
   delta     : uint32;
   src       : pint8;
-  i, 
+  i,
   WaveLoops : int32;
 begin
   if ( voice^.vc_TrackOn = 0 ) then
@@ -2385,14 +2385,14 @@ begin
     voice^.vc_VoiceVolume := 0;
     exit;
   end;
-  
+
   voice^.vc_VoiceVolume := voice^.vc_AudioVolume;
 
   if ( voice^.vc_PlantPeriod <> 0) then
   begin
     voice^.vc_PlantPeriod := 0;
     voice^.vc_VoicePeriod := voice^.vc_AudioPeriod;
-    
+
     freq2 := Period2Freq( voice^.vc_AudioPeriod );
     delta := uint32( trunc(freq2 / freqf) );    // FPC: requires truncation
 
@@ -2404,7 +2404,7 @@ begin
   if ( voice^.vc_NewWaveform <> 0 ) then
   begin
     src := voice^.vc_AudioSource;
-    
+
     if ( voice^.vc_Waveform = (4-1) ) then
     begin
       memcpy(@voice^.vc_VoiceBuffer[0], @src[0], $280);
@@ -2418,7 +2418,7 @@ begin
     end;
 
     voice^.vc_VoiceBuffer[$280] := voice^.vc_VoiceBuffer[0];
-    voice^.vc_MixSource         := @voice^.vc_VoiceBuffer[0];    // FPC: change
+    voice^.vc_MixSource         := @voice^.vc_VoiceBuffer[0];    // FPC: explicit
   end;
 
 
@@ -2429,7 +2429,7 @@ begin
     freq2 := Period2Freq( voice^.vc_RingAudioPeriod );
 
     delta := uint32( trunc (freq2 / freqf) );     // FPC: requires truncation
-    
+
     if ( delta > ($280 shl 16) ) then delta := delta - ($280 shl 16);
     if ( delta = 0 ) then delta := 1;
     voice^.vc_RingDelta := delta;
@@ -2443,9 +2443,9 @@ begin
 
     for i := 0 to Pred(WaveLoops)
     do memcpy( @voice^.vc_RingVoiceBuffer[i*4*(1 shl voice^.vc_WaveLength)], @src[0], 4 * (1 shl voice^.vc_WaveLength) );
-    
+
     voice^.vc_RingVoiceBuffer[$280] := voice^.vc_RingVoiceBuffer[0];
-    voice^.vc_RingMixSource         := @voice^.vc_RingVoiceBuffer[0]; // FPC: change
+    voice^.vc_RingMixSource         := @voice^.vc_RingVoiceBuffer[0]; // FPC: explicit
   end;
 end;
 

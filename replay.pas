@@ -2450,4 +2450,78 @@ end;
 
 
 
+procedure hvl_play_irq( ht: Phvl_tune );
+var
+  i         : int32;    // FPC: prefer integer
+  nextpos   : int32;
+begin
+  if ( ht^.ht_StepWaitFrames <= 0 ) then
+  begin
+    if ( ht^.ht_GetNewPosition <> 0 ) then
+    begin
+      if ( (ht^.ht_PosNr+1) = ht^.ht_PositionNr )
+      then nextpos := 0
+      else nextpos := (ht^.ht_PosNr+1);
+
+      for i := 0 to Pred(ht^.ht_Channels) do
+      begin
+        ht^.ht_Voices[i].vc_Track         := ht^.ht_Positions[ht^.ht_PosNr].pos_Track[i];
+        ht^.ht_Voices[i].vc_Transpose     := ht^.ht_Positions[ht^.ht_PosNr].pos_Transpose[i];
+        ht^.ht_Voices[i].vc_NextTrack     := ht^.ht_Positions[nextpos].pos_Track[i];
+        ht^.ht_Voices[i].vc_NextTranspose := ht^.ht_Positions[nextpos].pos_Transpose[i];
+      end;
+      ht^.ht_GetNewPosition := 0;
+    end;
+
+    for i := 0 to Pred(ht^.ht_Channels)
+    do hvl_process_step( ht, @ht^.ht_Voices[i] );
+
+    ht^.ht_StepWaitFrames := ht^.ht_Tempo;
+  end;
+
+  for i := 0 to Pred(ht^.ht_Channels)
+  do hvl_process_frame( ht, @ht^.ht_Voices[i] );
+
+  ht^.ht_PlayingTime := ht^.ht_PlayingTime + 1;
+  if ( ht^.ht_Tempo > 0 ) then          // FPC: modification
+  begin
+    dec(ht^.ht_StepWaitFrames, 1);
+    if ( ht^.ht_StepWaitFrames <= 0 ) then
+    begin
+      if not( ht^.ht_PatternBreak <> 0 ) then
+      begin
+        ht^.ht_NoteNr := ht^.ht_NoteNr + 1;
+        if ( ht^.ht_NoteNr >= ht^.ht_TrackLength ) then
+        begin
+          ht^.ht_PosJump      := ht^.ht_PosNr+1;
+          ht^.ht_PosJumpNote  := 0;
+          ht^.ht_PatternBreak := 1;
+        end;
+      end;
+
+      if ( ht^.ht_PatternBreak <> 0 ) then
+      begin
+        ht^.ht_PatternBreak := 0;
+        ht^.ht_PosNr        := ht^.ht_PosJump;
+        ht^.ht_NoteNr       := ht^.ht_PosJumpNote;
+
+        if ( ht^.ht_PosNr = ht^.ht_PositionNr ) then
+        begin
+          ht^.ht_SongEndReached := 1;
+          ht^.ht_PosNr          := ht^.ht_Restart;
+        end;
+        ht^.ht_PosJumpNote  := 0;
+        ht^.ht_PosJump      := 0;
+
+        ht^.ht_GetNewPosition := 1;
+      end;
+    end;
+  end;
+
+  for i := 0 to Pred(ht^.ht_Channels)
+  do hvl_set_audio( @ht^.ht_Voices[i], ht^.ht_Frequency );
+end;
+
+
+
 end.

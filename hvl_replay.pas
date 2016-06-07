@@ -2453,18 +2453,18 @@ end;
 
 procedure hvl_play_irq( ht: Phvl_tune );
 var
-  i         : uint32;
+  i         : int32;    // FPC: prefer integer
   nextpos   : int32;
 begin
   if ( ht^.ht_StepWaitFrames <= 0 ) then
   begin
     if ( ht^.ht_GetNewPosition <> 0 ) then
     begin
-      if (ht^.ht_PosNr+1 = ht^.ht_PositionNr)
+      if ( (ht^.ht_PosNr+1) = ht^.ht_PositionNr )
       then nextpos := 0
       else nextpos := (ht^.ht_PosNr+1);
 
-      for i:= 0 to Pred(ht^.ht_Channels) do
+      for i := 0 to Pred(ht^.ht_Channels) do
       begin
         ht^.ht_Voices[i].vc_Track         := ht^.ht_Positions[ht^.ht_PosNr].pos_Track[i];
         ht^.ht_Voices[i].vc_Transpose     := ht^.ht_Positions[ht^.ht_PosNr].pos_Transpose[i];
@@ -2485,7 +2485,7 @@ begin
 
   ht^.ht_PlayingTime := ht^.ht_PlayingTime + 1;
 
-  if ( ht^.ht_Tempo > 0 ) then                  // FPC modification !!!
+  if ( ht^.ht_Tempo > 0 ) then                  // FPC: modification
   begin
     dec(ht^.ht_StepWaitFrames, 1);
     if ( ht^.ht_StepWaitFrames <= 0 ) then

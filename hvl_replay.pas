@@ -2540,11 +2540,12 @@ var
   panr      : array [0..Pred(MAX_CHANNELS)] of int32;
   // **  uint32  vu[MAX_CHANNELS];
   a,b,j     : int32;
-  i,  chans, loops : uint32;
+  i,  chans,
+  loops     : int32;    // FPC: prefer integer type
 
 begin
   a:=0; b:=0;
-  
+
   chans := ht^.ht_Channels;
   for i := 0 to Pred(chans) do
   begin
@@ -2554,27 +2555,27 @@ begin
     src[i]   := ht^.ht_Voices[i].vc_MixSource;
     panl[i]  := ht^.ht_Voices[i].vc_PanMultLeft;
     panr[i]  := ht^.ht_Voices[i].vc_PanMultRight;
-    
+
     //* Ring Modulation */
     rdelta[i]:= ht^.ht_Voices[i].vc_RingDelta;
     rpos[i]  := ht^.ht_Voices[i].vc_RingSamplePos;
     rsrc[i]  := ht^.ht_Voices[i].vc_RingMixSource;
-    
-    //  vu[i] = 0;
+
+    // ** vu[i] = 0;
   end;
 
 
   repeat
     loops := samples;
-    for i := 0 to Pred(chans) do 
+    for i := 0 to Pred(chans) do
     begin
-      if ( pos[i] >= ($280 shl 16)) then pos[i] := pos[i] - ($280 shl 16);
+      if ( pos[i] >= ($280 shl 16) ) then pos[i] := pos[i] - ($280 shl 16);
       cnt := (($280 shl 16) - pos[i] - 1) div delta[i] + 1;
       if ( cnt < loops ) then loops := cnt;
-      
+
       if ( rsrc[i] <> nil ) then
       begin
-        if ( rpos[i] >= ($280 shl 16)) then rpos[i] := rpos[i] - ($280 shl 16);
+        if ( rpos[i] >= ($280 shl 16) ) then rpos[i] := rpos[i] - ($280 shl 16);
         cnt := (($280 shl 16) - rpos[i] - 1) div rdelta[i] + 1;
         if ( cnt < loops ) then loops := cnt;
       end;
@@ -2584,8 +2585,8 @@ begin
 
     // Inner loop
     repeat
-      a :=0;
-      b :=0;
+      a := 0;
+      b := 0;
       for i := 0 to Pred(chans) do 
       begin
         if ( rsrc[i] <> nil ) then
@@ -2598,32 +2599,32 @@ begin
         begin
           j := src[i][pos[i] shr 16] * vol[i];
         end;
-        
-// **     if( abs( j ) > vu[i] ) vu[i] = abs( j );
+
+        // **     if( abs( j ) > vu[i] ) vu[i] = abs( j );
 
         a := a + ( (j * panl[i]) shr 7 );
         b := b + ( (j * panr[i]) shr 7 );
         pos[i] := pos[i] + delta[i];
       end;
 
-      a := (a*ht^.ht_mixgain) shr 8;
-      b := (b*ht^.ht_mixgain) shr 8;
-      
-      pint16(buf1)^ := a;
-      pint16(buf2)^ := b;
+      a := ( int64(a) * int64(ht^.ht_mixgain) shr 8 ) and $FFFFFFFF; // FPC: overflow
+      b := ( int64(b) * int64(ht^.ht_mixgain) shr 8 ) and $FFFFFFFF; // FPC: overflow
+
+      pint16(buf1)^ := int16(a);    // FPC:
+      pint16(buf2)^ := int16(b);    // FPC:
 
       loops := loops - 1;
-      
+
       buf1 := buf1 + bufmod;
       buf2 := buf2 + bufmod;
-    until ( loops <= 0);     // not(loops > 0);     // do ... while( loops > 0 );
-  until ( samples <= 0 );    // not(samples > 0);   // do ... while( samples > 0 );
+    until ( loops <= 0 );   // do ... while( loops > 0 );
+  until ( samples = 0 );    // do ... while( samples > 0 );
 
   for i := 0 to Pred(chans) do
   begin
     ht^.ht_Voices[i].vc_SamplePos     := pos[i];
     ht^.ht_Voices[i].vc_RingSamplePos := rpos[i];
-// **   ht^.ht_Voices[i].vc_VUMeter = vu[i];
+    // **   ht^.ht_Voices[i].vc_VUMeter = vu[i];
   end;
 end;
 

@@ -2649,4 +2649,104 @@ end;
 
 
 
+function  hvl_mix_findloudest( ht: Phvl_tune; samples: uint32 ): int32;
+var
+  src   : Array [0..Pred(MAX_CHANNELS)] of pint8;
+  rsrc  : Array [0..Pred(MAX_CHANNELS)] of pint8;
+  delta : Array [0..Pred(MAX_CHANNELS)] of uint32;
+  rdelta: Array [0..Pred(MAX_CHANNELS)] of uint32;
+  vol   : Array [0..Pred(MAX_CHANNELS)] of int32;
+  pos   : Array [0..Pred(MAX_CHANNELS)] of uint32;
+  rpos  : Array [0..Pred(MAX_CHANNELS)] of uint32;
+  cnt   : uint32;
+  panl  : Array [0..Pred(MAX_CHANNELS)] of int32;
+  panr  : Array [0..Pred(MAX_CHANNELS)] of int32;
+  a     : int32 = 0;
+  b     : int32 = 0;
+  j     : int32;
+  loud  : uint32;
+  i,
+  chans,
+  loops : int32;    // FPC: prefer integer
+begin
+  loud := 0;
+
+  chans := ht^.ht_Channels;
+  for i := 0 to Pred(chans) do
+  begin
+    delta[i]  := ht^.ht_Voices[i].vc_Delta;
+    vol[i]    := ht^.ht_Voices[i].vc_VoiceVolume;
+    pos[i]    := ht^.ht_Voices[i].vc_SamplePos;
+    src[i]    := ht^.ht_Voices[i].vc_MixSource;
+    panl[i]   := ht^.ht_Voices[i].vc_PanMultLeft;
+    panr[i]   := ht^.ht_Voices[i].vc_PanMultRight;
+    //* Ring Modulation */
+    rdelta[i] := ht^.ht_Voices[i].vc_RingDelta;
+    rpos[i]   := ht^.ht_Voices[i].vc_RingSamplePos;
+    rsrc[i]   := ht^.ht_Voices[i].vc_RingMixSource;
+  end;
+
+  repeat
+    loops := samples;
+
+    for i := 0 to Pred(chans) do 
+    begin
+      if ( pos[i] >= ($280 shl 16) ) then pos[i] := pos[i] - $280 shl 16;
+      cnt := (($280 shl 16) - pos[i] - 1) div delta[i] + 1;
+      if ( cnt < loops ) then loops := cnt;
+
+      if ( rsrc[i] <> nil ) then
+      begin
+        if ( rpos[i] >= ( $280 shl 16) ) then rpos[i] := rpos[i] - $280 shl 16;
+        cnt := (($280 shl 16) - rpos[i] - 1) div rdelta[i] + 1;
+        if ( cnt < loops ) then loops := cnt;
+      end;
+    end;
+
+    samples := samples - loops;
+
+    // Inner loop
+    repeat
+      a := 0;
+      b := 0;
+      for i := 0 to Pred(chans) do
+      begin
+        if ( rsrc[i] <> nil ) then
+        begin
+          //* Ring Modulation */
+          j := ((src[i][pos[i] shr 16] * rsrc[i][rpos[i] shr 16]) shr 7) * vol[i];
+          rpos[i] := rpos[i] + rdelta[i];
+        end
+        else
+        begin
+          j := src[i][pos[i] shr 16] * vol[i];
+        end;
+        a := a + (j * panl[i]) shr 7;
+        b := b + (j * panr[i]) shr 7;
+        pos[i] := pos[i] + delta[i];
+      end;
+
+      // ** a = (a*ht->ht_mixgain)>>8;
+      // ** b = (b*ht->ht_mixgain)>>8;
+      a := abs( a );
+      b := abs( b );
+
+      if ( a > loud ) then loud := a;
+      if ( b > loud ) then loud := b;
+
+      loops := loops - 1;
+    until ( loops <= 0 );   // do .. while( loops > 0 );
+  until ( samples = 0 );    // do .. while( samples > 0 );
+
+  for i := 0 to Pred(Chans) do
+  begin
+    ht^.ht_Voices[i].vc_SamplePos     :=  pos[i];
+    ht^.ht_Voices[i].vc_RingSamplePos := rpos[i];
+  end;
+
+  hvl_mix_findloudest := loud;
+end;
+
+
+
 end.

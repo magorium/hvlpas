@@ -2749,4 +2749,44 @@ end;
 
 
 
+function  hvl_FindLoudest( ht: Phvl_tune; maxframes: int32; usesongend: LongBool ): int32;
+var
+  rsamp,
+  rloop     : uint32;
+  samples,
+  loops,
+  loud, n   : int32;    // FPC: prefer integer
+  frm       : int32;
+begin
+  rsamp := ht^.ht_Frequency div 50 div ht^.ht_SpeedMultiplier;
+  rloop := ht^.ht_SpeedMultiplier;
+
+  loud := 0;
+
+  ht^.ht_SongEndReached := 0;
+
+  frm := 0;
+  while ( frm < maxframes ) do
+  begin
+    if ( ( usesongend ) and ( ht^.ht_SongEndReached <> 0) )
+    then break;
+
+    samples := rsamp;
+    loops   := rloop;
+
+    repeat
+      hvl_play_irq( ht );
+      n := hvl_mix_findloudest( ht, samples );
+      if ( n > loud ) then loud := n;
+      loops := loops - 1;
+    until (loops <= 0);
+
+    frm := frm + 1;
+  end;
+
+  hvl_FindLoudest := loud;
+end;
+
+
+
 end.

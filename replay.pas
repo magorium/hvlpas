@@ -230,6 +230,14 @@ Type
   Phvl_tune                 = ^Thvl_tune;
 
 
+  procedure hvl_DecodeFrame( ht: Phvl_tune; buf1: pint8; buf2: pint8; bufmod: int32 );
+  procedure hvl_InitReplayer;
+  function  hvl_InitSubsong( ht: Phvl_tune; nr: uint32 ): LongBool;
+  function  hvl_LoadTune( name: pchar; freq: uint32; defstereo: uint32 ): Phvl_Tune;
+  procedure hvl_FreeTune( ht: phvl_tune );
+  function  hvl_reset( buf: Puint8; buflen: uint32; defstereo: uint32; freq: uint32; freeit: LongBool ): Phvl_tune;
+  Function  hvl_FindLoudest( ht: Phvl_tune; maxframes: int32; usesongend: LongBool ): int32;
+
 
 implementation
 

@@ -4,4 +4,4 @@ Pascal port of hvl
 - play_hvl_win.pas - hvl commandline player for Windows
 
 ToDo:
-- make it work
+- Remove the (porting) bugs so that (wav) output doesn't sound distorted anymore

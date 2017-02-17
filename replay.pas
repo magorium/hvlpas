@@ -2307,7 +2307,7 @@ begin
       AudioSource := AudioSource + ( voice^.vc_WNRandom and (2*$280-1) ) and (not 1);  // FPC note: check not(1)
       // GoOnRandom
       voice^.vc_WNRandom := int32( int64(voice^.vc_WNRandom) + int64(2239384) ) ;    // FPC: overflow
-      voice^.vc_WNRandom := ((((voice^.vc_WNRandom shr 8) or (voice^.vc_WNRandom shl 24)) + 782323) xor 75) - 6735;
+      voice^.vc_WNRandom := ((( sarLongInt(voice^.vc_WNRandom, 8) or (voice^.vc_WNRandom shl 24)) + 782323) xor 75) - 6735;
     end;
 
     voice^.vc_AudioSource := AudioSource;

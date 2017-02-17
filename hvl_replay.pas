@@ -858,7 +858,7 @@ begin
   // Subsongs
   DebugLn('initializing #%d subsongs', [ht^.ht_SubsongNr]);
 
-  for i := 0 to Pred(ht^.ht_SubsongNr) do
+  for i := 0 to Pred(Integer(ht^.ht_SubsongNr)) do
   begin
     DebugLn( ' init subsong ', [i]);
     ht^.ht_Subsongs[i] := (bptr[0] shl 8) or bptr[1];

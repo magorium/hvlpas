@@ -5,7 +5,7 @@ interface
 
 Type
   size_t    = SizeInt;
-  float64   = double;
+  float64   = extended; // fixes precision errors shown when using double
   pvoid     = pointer;
   sigset_t  = LongWord;
 

@@ -1513,7 +1513,7 @@ begin
         goto CaseBreak0c;
       end;
 
-      FXParam := FXParam - $a0 - $50;   // FPC: implementation
+      FXParam := FXParam - ($a0 - $50);   // FPC: implementation
       if ( FXParam < 0 ) then goto CaseBreak0C; // 1.6
 
       if ( FXParam <= $40 )
@@ -1917,7 +1917,7 @@ begin
         goto CaseBreak12;
       end;
 
-      FXParam := FXParam - $a0-$50;                     // FPC: modification
+      FXParam := FXParam - ($a0-$50);                   // FPC: modification
       if ( (FXParam) < 0 ) then goto CaseBreak12;
 
       if ( FXParam <= $40 )

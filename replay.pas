@@ -1714,7 +1714,7 @@ begin
 
     voice^.vc_FilterSpeed := d6;
     d3 := d3 and (not $80);
-    d3 := d4 and (not $80);
+    d4 := d4 and (not $80);
 
     if ( d3 > d4 ) then
     begin
